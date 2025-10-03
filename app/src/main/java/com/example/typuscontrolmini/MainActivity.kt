@@ -57,7 +57,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "¡Listo para capturar!", Toast.LENGTH_SHORT).show()
 
         } else {
-            tvStatus.text = "Estado: Permiso denegado 😢"
+            tvStatus.text = "Estado: Permiso denegado 😢 "
         }
     }
 
