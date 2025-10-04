@@ -22,8 +22,10 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import java.io.File
 import java.io.FileOutputStream
+import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import android.app.Activity
+import android.util.Base64
 
 class ScreenCaptureService : Service() {
     private var mediaProjection: MediaProjection? = null
@@ -36,6 +38,11 @@ class ScreenCaptureService : Service() {
     private val frameInterval = 1000L / targetFps // 66ms entre frames
     private var lastFrameTime = 0L
 
+    // Websocket client
+    private var webSocketClient: WebSocketClient? = null
+    private var screenWidth = 0
+    private var screenHeight = 0
+
     companion object {
         private const val TAG = "ScreenCaptureService"
         private const val NOTIFICATION_ID = 1001
@@ -43,6 +50,7 @@ class ScreenCaptureService : Service() {
 
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
+        const val EXTRA_SERVER_URL = "server_url"
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -51,9 +59,8 @@ class ScreenCaptureService : Service() {
         // ⚡ PRIMERO: Notificación INMEDIATA
         startForeground(NOTIFICATION_ID, createNotification())
 
-        // 🔍 DEBUG: Ver qué recibimos
-        Log.d(TAG, "Intent recibido: $intent")
-        Log.d(TAG, "Extras: ${intent?.extras}")
+        //Log.d(TAG, "Intent recibido: $intent")
+        //Log.d(TAG, "Extras: ${intent?.extras}")
 
         // DESPUÉS: Procesamos los datos
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0  // Default 0
@@ -64,17 +71,25 @@ class ScreenCaptureService : Service() {
             intent?.getParcelableExtra(EXTRA_RESULT_DATA)
         }
 
-        // 🔍 DEBUG: Ver qué obtuvimos
-        Log.d(TAG, "ResultCode recibido: $resultCode")
-        Log.d(TAG, "ResultData recibido: $resultData")
+        val serverUrl = intent?.getStringExtra(EXTRA_SERVER_URL) ?: "ws://10.0.2.2:8000/ws/stream"
 
-        if (resultCode == Activity.RESULT_OK && resultData != null) {  // 👈 ESTO!
+        if (resultCode == Activity.RESULT_OK && resultData != null) {
             Log.d(TAG, "✅ Datos válidos, iniciando captura...")
-            startCapture(resultCode, resultData)
+
+            // Connect WebSocket
+            webSocketClient = WebSocketClient(serverUrl)
+            webSocketClient?.connect(
+                onConnected = {
+                    Log.d(TAG, "✅ WebSocket conectado!")
+                    startCapture(resultCode, resultData)
+                },
+                onDisconnected = {
+                    Log.d(TAG, "🔴 WebSocket disconnected!")
+                },
+            )
+
         } else {
             Log.e(TAG, "❌ Datos inválidos para iniciar captura")
-            Log.e(TAG, "   resultCode: $resultCode (esperaba ${Activity.RESULT_OK})")
-            Log.e(TAG, "   resultData: $resultData")
             stopSelf()
         }
 
@@ -87,7 +102,7 @@ class ScreenCaptureService : Service() {
 
         val mediaProjectionCallback = object : MediaProjection.Callback() {
             override fun onStop() {
-                Log.d(TAG, "🛑 Captura detenida")
+                Log.d(TAG, "🛑 Capture stopping")
                 stopSelf()
             }
         }
@@ -95,7 +110,7 @@ class ScreenCaptureService : Service() {
         mediaProjection?.registerCallback(mediaProjectionCallback, null)
 
         if (mediaProjection == null) {
-            Log.e(TAG, "❌ No se pudo obtener el MediaProjection")
+            Log.e(TAG, "❌ cannot get MediaProjection")
             stopSelf()
             return
         }
@@ -107,15 +122,15 @@ class ScreenCaptureService : Service() {
         val height = metrics.heightPixels / 2
         val density = metrics.densityDpi
 
-        Log.d(TAG, "Capturando a: ${width}x${height}")
+        Log.d(TAG, "Capturing in: ${width}x${height}")
 
         // frames dir
-        val outputDir = File(getExternalFilesDir(null), "captures")
-        if (!outputDir.exists()) {
-            outputDir.mkdirs()
-        }
+        //val outputDir = File(getExternalFilesDir(null), "captures")
+        //if (!outputDir.exists()) {
+        //    outputDir.mkdirs()
+        //}
 
-        // Thread to avoid UI
+        // Thread to avoid block UI
         handlerThread = HandlerThread("ScreenCaptureThread").apply { start() }
         val handler = Handler(handlerThread!!.looper)
 
@@ -132,7 +147,7 @@ class ScreenCaptureService : Service() {
                         continue
                     }
                     lastFrameTime = currentTime
-                    processFrame(image!!, outputDir)
+                    processFrame(image!! )
                     image?.close()
                 }
             } catch (e: Exception) {
@@ -141,13 +156,13 @@ class ScreenCaptureService : Service() {
             }
             val currentTime = System.currentTimeMillis()
 
-            // ⏱️ Control de FPS: solo procesar cada ~66ms (15 FPS)
+            // ⏱️ Fps control: ~66ms (15 FPS)
             if (currentTime - lastFrameTime >= frameInterval) {
                 lastFrameTime = currentTime
 
                 val image = reader.acquireLatestImage()
                 if (image != null) {
-                    processFrame(image, outputDir)
+                    processFrame(image)
                     image.close()
                 }
             }
@@ -176,21 +191,26 @@ class ScreenCaptureService : Service() {
 
     }
 
-    private fun processFrame(image: Image, outputDir: File) {
+    private fun processFrame(image: Image) {
         try {
-            //  Image to Bitmap
+            // Image to Bitmap
             val bitmap = imageToBitmap(image)
 
-            // save as JPEG
-            val file = File(outputDir, "frame_${frameCount}.jpg")
-            FileOutputStream(file).use { out ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
-            }
+            // Bitmap to JPEG bytes
+            val stream = ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, stream)
+            val jpegBytes = stream.toByteArray()
 
-            frameCount++
+            // to Base64
+            val base64String = Base64.encodeToString(jpegBytes, Base64.NO_WRAP)
 
-            if (frameCount % 15 == 0) {
-                Log.d(TAG, "📸 Frames capturados: $frameCount")
+            // 📤 send in WebSocket
+            val sent = webSocketClient?.sendFrame(base64String, screenWidth, screenHeight) ?: false
+
+            if (sent) {
+                frameCount++
+            } else {
+                Log.w(TAG, "⚠️ No se pudo enviar frame")
             }
 
         } catch (e: Exception) {

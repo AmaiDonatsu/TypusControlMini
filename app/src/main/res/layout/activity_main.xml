@@ -6,11 +6,27 @@
     android:padding="16dp"
     android:gravity="center">
 
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="URL del Servidor"
+        android:textSize="16sp"
+        android:layout_marginBottom="8dp"/>
+
+    <EditText
+        android:id="@+id/etServerUrl"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="ws://192.168.1.100:8000/ws/stream"
+        android:inputType="textUri"
+        android:textSize="14sp"
+        android:layout_marginBottom="16dp"/>
+
     <Button
         android:id="@+id/btnStartCapture"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="▶️ Iniciar Captura"
+        android:text="▶️ Iniciar Streaming"
         android:textSize="18sp"/>
 
     <Button
@@ -18,7 +34,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="⏹️ Detener Captura"
+        android:text="⏹️ Detener Streaming"
         android:textSize="18sp"
         android:enabled="false"/>
 
