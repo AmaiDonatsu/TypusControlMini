@@ -13,6 +13,9 @@ import android.content.Intent
 import android.os.Build
 import androidx.annotation.RequiresApi
 import android.util.Log
+import com.google.firebase.auth.FirebaseAuth
+import java.net.URL
+import java.net.HttpURLConnection
 
 class MainActivity : AppCompatActivity() {
 
@@ -20,6 +23,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnStopCapture: Button
     private lateinit var tvStatus: TextView
     private lateinit var etServerUrl: EditText
+
+    private lateinit var auth: FirebaseAuth
+    private var userToken: String? = null
 
     private val mediaProjectionManager by lazy {
         getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
@@ -102,6 +108,71 @@ class MainActivity : AppCompatActivity() {
         etServerUrl.isEnabled = !isCapturing
     }
 
+    private fun getFirebaseToken(): String? {
+        var token: String? = null
+        val auth = FirebaseAuth.getInstance()
+        val user = auth.currentUser
+        if (user != null) {
+            user.getIdToken(true).addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    token = task.result?.token
+                    println("User token: $token")
+                }
+            }
+        }
+        return token
+    }
 
-}
+    private fun getApiKeys() {
+        val currentUser = auth.currentUser
+
+        currentUser?.getIdToken(true)?.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val token = task.result?.token
+                val userId = currentUser.uid
+
+                Thread {
+                    try {
+                        val url = URL("http://10.0.2.2:8000/keys/list_available")
+                        val connection = url.openConnection() as HttpURLConnection
+                        connection.requestMethod = "GET"
+
+                        connection.setRequestProperty("Authorization", "Bearer $token")
+                        connection.setRequestProperty("Content-Type", "application/json")
+
+                        val responseCode = connection.responseCode
+                        if (responseCode == HttpURLConnection.HTTP_OK) {
+                            val inputStream = connection.inputStream
+                            val response = inputStream.bufferedReader().use { it.readText() }
+
+
+                            runOnUiThread {
+                                Toast.makeText(this, "Respuesta: $response", Toast.LENGTH_LONG).show()
+                                println("API Response: $response")
+                            }
+                        } else {
+                            runOnUiThread {
+                                Toast.makeText(this, "Error: $responseCode", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+
+                        connection.disconnect()
+
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        runOnUiThread {
+                            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }
+        }
+
+        }
+
+
+    }
+
+
+
 
