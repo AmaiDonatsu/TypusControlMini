@@ -7,16 +7,28 @@ import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.auth.FirebaseAuth
 import android.widget.Toast
+import android.util.Log
 
 class LoginActivity: AppCompatActivity() {
 
     private lateinit var auth: FirebaseAuth
+    companion object {
+        private const val TAG = "LoginActivity"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         auth = FirebaseAuth.getInstance()
         if (auth.currentUser != null) {
+            Log.d(TAG, "User is already signed in with UID: ${auth.currentUser!!.uid}")
+            auth.currentUser!!.getIdToken(true).addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    Log.d(TAG, "User token: ${task.result?.token}")
+                } else {
+                    Log.w(TAG, "Failed to get token.", task.exception)
+                }
+            }
             goToMainActivity()
             return
         }
