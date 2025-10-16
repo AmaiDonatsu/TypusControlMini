@@ -28,6 +28,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var auth: FirebaseAuth
     private var userToken: String? = null
     private var apiKeys: List<String> = emptyList()
+    private var apiKeysJson: List<JSONObject> = emptyList()
 
     private val mediaProjectionManager by lazy {
         getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
@@ -150,19 +151,32 @@ class MainActivity : AppCompatActivity() {
                             .build()
 
                         client.newCall(request).execute().use { response ->
-                            if (!response.isSuccessful) throw IOException("Unexpected code $response")
+                            if (!response.isSuccessful) {
+                                if (response.code == 401) {
+                                    runOnUiThread {
+                                        Toast.makeText(this, "Unauthorized", Toast.LENGTH_SHORT).show()
+                                    }
+                                    println("Unauthorized")
+                                    auth.signOut()
+                                    startActivity(Intent(this, LoginActivity::class.java))
+                                }
+                            }
 
                             val responseBody = response.body?.string()
                             if (responseBody != null) {
+                                println("Response body: $responseBody")
                                 val jsonResponse = JSONObject(responseBody)
                                 if (jsonResponse.getBoolean("success")) {
                                     val keysArray = jsonResponse.getJSONArray("keys")
                                     val keyNames = mutableListOf<String>()
+                                    val keyObjects = mutableListOf<JSONObject>()
                                     for (i in 0 until keysArray.length()) {
                                         val keyObject = keysArray.getJSONObject(i)
                                         keyNames.add(keyObject.getString("name"))
+                                        keyObjects.add(keyObject)
                                     }
                                     apiKeys = keyNames
+                                    apiKeysJson = keyObjects
                                     runOnUiThread {
                                         Toast.makeText(this, "${apiKeys.size} keys loaded!", Toast.LENGTH_SHORT).show()
                                         println("API Keys: $apiKeys")
