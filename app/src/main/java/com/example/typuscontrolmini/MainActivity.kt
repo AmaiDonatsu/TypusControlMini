@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import android.widget.Button
 import android.widget.TextView
-import android.widget.EditText
 import android.content.Context
 import android.media.projection.MediaProjectionManager
 import android.widget.Toast
@@ -14,18 +13,21 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
-import java.net.URL
-import java.net.HttpURLConnection
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
+import java.io.IOException
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var btnStartCapture: Button
     private lateinit var btnStopCapture: Button
     private lateinit var tvStatus: TextView
-    private lateinit var etServerUrl: EditText
+    private lateinit var btnRefresh: Button
 
     private lateinit var auth: FirebaseAuth
     private var userToken: String? = null
+    private var apiKeys: List<String> = emptyList()
 
     private val mediaProjectionManager by lazy {
         getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
@@ -41,9 +43,7 @@ class MainActivity : AppCompatActivity() {
         if (result.resultCode == RESULT_OK && result.data != null) {
             tvStatus.text = "Estate: Connecting..."
 
-            val serverUrl = etServerUrl.text.toString().ifEmpty {
-                "ws://10.0.2.2:8000/ws/stream"
-            }
+            val serverUrl = "ws://10.0.2.2:8000/ws/stream"
 
             // MediaProjection
             val resultCode = result.resultCode
@@ -73,15 +73,22 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        auth = FirebaseAuth.getInstance()
+        userToken = getFirebaseToken()
+
         btnStartCapture = findViewById(R.id.btnStartCapture)
         btnStopCapture = findViewById(R.id.btnStopCapture)
         tvStatus = findViewById(R.id.tvStatus)
-        etServerUrl = findViewById(R.id.etServerUrl)
+        btnRefresh = findViewById(R.id.btnRefresh)
+
         btnStartCapture.setOnClickListener {
             startScreenCapture()
         }
         btnStopCapture.setOnClickListener {
             stopScreenCapture()
+        }
+        btnRefresh.setOnClickListener {
+            getApiKeys()
         }
 
         updateButtons()
@@ -105,7 +112,6 @@ class MainActivity : AppCompatActivity() {
     private fun updateButtons() {
         btnStartCapture.isEnabled = !isCapturing
         btnStopCapture.isEnabled = isCapturing
-        etServerUrl.isEnabled = !isCapturing
     }
 
     private fun getFirebaseToken(): String? {
@@ -133,46 +139,51 @@ class MainActivity : AppCompatActivity() {
 
                 Thread {
                     try {
-                        val url = URL("http://10.0.2.2:8000/keys/list_available")
-                        val connection = url.openConnection() as HttpURLConnection
-                        connection.requestMethod = "GET"
+                        println("User ID: $userId")
+                        println("Token: $token")
+                        println("making URL: http://10.0.2.2:8000/keys/list_available")
+                        val client = OkHttpClient()
+                        val request = Request.Builder()
+                            .url("http://10.0.2.2:8000/keys/list_available")
+                            .header("Authorization", "Bearer $token")
+                            .header("Content-Type", "application/json")
+                            .build()
 
-                        connection.setRequestProperty("Authorization", "Bearer $token")
-                        connection.setRequestProperty("Content-Type", "application/json")
+                        client.newCall(request).execute().use { response ->
+                            if (!response.isSuccessful) throw IOException("Unexpected code $response")
 
-                        val responseCode = connection.responseCode
-                        if (responseCode == HttpURLConnection.HTTP_OK) {
-                            val inputStream = connection.inputStream
-                            val response = inputStream.bufferedReader().use { it.readText() }
-
-
-                            runOnUiThread {
-                                Toast.makeText(this, "Respuesta: $response", Toast.LENGTH_LONG).show()
-                                println("API Response: $response")
-                            }
-                        } else {
-                            runOnUiThread {
-                                Toast.makeText(this, "Error: $responseCode", Toast.LENGTH_SHORT).show()
+                            val responseBody = response.body?.string()
+                            if (responseBody != null) {
+                                val jsonResponse = JSONObject(responseBody)
+                                if (jsonResponse.getBoolean("success")) {
+                                    val keysArray = jsonResponse.getJSONArray("keys")
+                                    val keyNames = mutableListOf<String>()
+                                    for (i in 0 until keysArray.length()) {
+                                        val keyObject = keysArray.getJSONObject(i)
+                                        keyNames.add(keyObject.getString("name"))
+                                    }
+                                    apiKeys = keyNames
+                                    runOnUiThread {
+                                        Toast.makeText(this, "${apiKeys.size} keys loaded!", Toast.LENGTH_SHORT).show()
+                                        println("API Keys: $apiKeys")
+                                    }
+                                }
                             }
                         }
-
-                        connection.disconnect()
-
                     } catch (e: Exception) {
                         e.printStackTrace()
+                        println("Error al intentar obtener el token: ${e.message}")
                         runOnUiThread {
                             Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                         }
                     }
+                }.start()
+            } else {
+                runOnUiThread {
+                    Toast.makeText(this, "Error al obtener el token", Toast.LENGTH_SHORT).show()
                 }
+                println("Error al obtener el token")
             }
         }
-
-        }
-
-
     }
-
-
-
-
+}

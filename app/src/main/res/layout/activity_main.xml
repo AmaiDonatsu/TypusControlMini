@@ -1,49 +1,61 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp"
-    android:gravity="center">
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="URL del Servidor"
-        android:textSize="16sp"
-        android:layout_marginBottom="8dp"/>
-
-    <EditText
-        android:id="@+id/etServerUrl"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="ws://192.168.1.100:8000/ws/stream"
-        android:inputType="textUri"
-        android:textSize="14sp"
-        android:layout_marginBottom="16dp"/>
+    android:padding="16dp">
 
     <Button
-        android:id="@+id/btnStartCapture"
+        android:id="@+id/btnRefresh"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="▶️ Iniciar Streaming"
-        android:textSize="18sp"/>
-
-    <Button
-        android:id="@+id/btnStopCapture"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="⏹️ Detener Streaming"
-        android:textSize="18sp"
-        android:enabled="false"/>
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:text="Refresh" />
 
     <TextView
         android:id="@+id/tvStatus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_below="@id/btnRefresh"
+        android:layout_centerHorizontal="true"
         android:layout_marginTop="16dp"
         android:text="Estado: Detenido ⏹️"
-        android:textSize="16sp"/>
+        android:textSize="16sp" />
 
-</LinearLayout>
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvKeys"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_below="@id/tvStatus"
+        android:layout_above="@+id/bottom_buttons"
+        android:layout_marginTop="16dp"
+        tools:listitem="@layout/key_item" />
+
+    <LinearLayout
+        android:id="@+id/bottom_buttons"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_alignParentBottom="true"
+        android:gravity="center">
+
+        <Button
+            android:id="@+id/btnStartCapture"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="▶️ Start"
+            android:textSize="18sp"/>
+
+        <Button
+            android:id="@+id/btnStopCapture"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="⏹️ Stop"
+            android:textSize="18sp"
+            android:enabled="false"/>
+
+    </LinearLayout>
+
+</RelativeLayout>
