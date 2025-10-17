@@ -24,7 +24,7 @@ class LoginActivity: AppCompatActivity() {
             Log.d(TAG, "User is already signed in with UID: ${auth.currentUser!!.uid}")
             auth.currentUser!!.getIdToken(true).addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    Log.d(TAG, "User token: ${task.result?.token}")
+                    Log.d(TAG, "User token already authenticated: ${task.result?.token}")
                 } else {
                     Log.w(TAG, "Failed to get token.", task.exception)
                 }
@@ -62,6 +62,10 @@ class LoginActivity: AppCompatActivity() {
             .addOnCompleteListener(this) { task ->
                 if (task.isSuccessful) {
                     Toast.makeText(this, "Inicio de sesión exitoso.", Toast.LENGTH_SHORT).show()
+                    println("User ID: ${auth.currentUser!!.uid}")
+                    println("user token auth: ${auth.currentUser!!.getIdToken(true)}")
+
+
                     goToMainActivity()
                 } else {
                     val error = task.exception?.message ?: "Error desconocido."

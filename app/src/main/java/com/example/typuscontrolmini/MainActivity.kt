@@ -1,22 +1,24 @@
 package com.example.typuscontrolmini
+
 import android.annotation.SuppressLint
+import android.content.Context
+import android.content.Intent
+import android.media.projection.MediaProjectionManager
+import android.os.Build
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
+import android.util.Log
 import android.widget.Button
 import android.widget.TextView
-import android.content.Context
-import android.media.projection.MediaProjectionManager
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import android.content.Intent
-import android.os.Build
 import androidx.annotation.RequiresApi
-import android.util.Log
+import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.auth.FirebaseAuth
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
-import java.io.IOException
 
 class MainActivity : AppCompatActivity() {
 
@@ -24,9 +26,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnStopCapture: Button
     private lateinit var tvStatus: TextView
     private lateinit var btnRefresh: Button
-
+    private lateinit var rvKeys: RecyclerView
+    private lateinit var keyAdapter: KeyAdapter
     private lateinit var auth: FirebaseAuth
-    private var userToken: String? = null
     private var apiKeys: List<String> = emptyList()
     private var apiKeysJson: List<JSONObject> = emptyList()
 
@@ -75,19 +77,41 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         auth = FirebaseAuth.getInstance()
-        userToken = getFirebaseToken()
 
+        // Inicializar vistas
         btnStartCapture = findViewById(R.id.btnStartCapture)
         btnStopCapture = findViewById(R.id.btnStopCapture)
         tvStatus = findViewById(R.id.tvStatus)
         btnRefresh = findViewById(R.id.btnRefresh)
+        rvKeys = findViewById(R.id.rvKeys)
 
+        // Configurar RecyclerView
+        setupRecyclerView()
+
+        // Configurar botones
+        setupButtons()
+
+        // Cargar las API keys al inicio
+        getApiKeys()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun setupRecyclerView() {
+        rvKeys.layoutManager = LinearLayoutManager(this)
+        keyAdapter = KeyAdapter(apiKeysJson)
+        //rvKeys.adapter = keyAdapter
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun setupButtons() {
         btnStartCapture.setOnClickListener {
             startScreenCapture()
         }
+
         btnStopCapture.setOnClickListener {
             stopScreenCapture()
         }
+
         btnRefresh.setOnClickListener {
             getApiKeys()
         }
@@ -115,25 +139,10 @@ class MainActivity : AppCompatActivity() {
         btnStopCapture.isEnabled = isCapturing
     }
 
-    private fun getFirebaseToken(): String? {
-        var token: String? = null
-        val auth = FirebaseAuth.getInstance()
-        val user = auth.currentUser
-        if (user != null) {
-            user.getIdToken(true).addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    token = task.result?.token
-                    println("User token: $token")
-                }
-            }
-        }
-        return token
-    }
-
     private fun getApiKeys() {
         val currentUser = auth.currentUser
 
-        currentUser?.getIdToken(true)?.addOnCompleteListener { task ->
+        currentUser?.getIdToken(false)?.addOnCompleteListener { task ->
             if (task.isSuccessful) {
                 val token = task.result?.token
                 val userId = currentUser.uid
@@ -141,7 +150,7 @@ class MainActivity : AppCompatActivity() {
                 Thread {
                     try {
                         println("User ID: $userId")
-                        println("Token: $token")
+                        println("Token to send: $token")
                         println("making URL: http://10.0.2.2:8000/keys/list_available")
                         val client = OkHttpClient()
                         val request = Request.Builder()
@@ -180,6 +189,7 @@ class MainActivity : AppCompatActivity() {
                                     runOnUiThread {
                                         Toast.makeText(this, "${apiKeys.size} keys loaded!", Toast.LENGTH_SHORT).show()
                                         println("API Keys: $apiKeys")
+                                        rvKeys.adapter = KeyAdapter(apiKeysJson)
                                     }
                                 }
                             }
