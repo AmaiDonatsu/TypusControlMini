@@ -1,7 +1,7 @@
 package com.example.typuscontrolmini
 
 import android.annotation.SuppressLint
-import android.content.Context
+//import android.content.Context
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.os.Build
@@ -33,9 +33,10 @@ class MainActivity : AppCompatActivity() {
     private var apiKeysJson: List<JSONObject> = emptyList()
 
     private val mediaProjectionManager by lazy {
-        getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
     }
     private var isCapturing: Boolean = false
+    @SuppressLint("SetTextI18n")
     @RequiresApi(Build.VERSION_CODES.O)
     private val screenCaptureLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -63,11 +64,11 @@ class MainActivity : AppCompatActivity() {
             updateButtons()
             tvStatus.text = "State: Streaming..."
 
-            // TODO: Iniciar captura con estos datos
+            // TODO: Init capture with this data
             Toast.makeText(this, "Streaming!", Toast.LENGTH_SHORT).show()
 
         } else {
-            tvStatus.text = "Estado: Permiso denegado 😢 "
+            tvStatus.text = "State: permission denied 😢 "
         }
     }
 
@@ -78,7 +79,7 @@ class MainActivity : AppCompatActivity() {
 
         auth = FirebaseAuth.getInstance()
 
-        // Inicializar vistas
+        // init views
         btnStartCapture = findViewById(R.id.btnStartCapture)
         btnStopCapture = findViewById(R.id.btnStopCapture)
         tvStatus = findViewById(R.id.tvStatus)

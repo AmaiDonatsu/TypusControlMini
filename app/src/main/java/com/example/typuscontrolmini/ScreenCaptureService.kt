@@ -4,7 +4,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-import android.content.Context
+//import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
@@ -20,12 +20,13 @@ import android.os.HandlerThread
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import java.io.File
-import java.io.FileOutputStream
+//import java.io.File
+//import java.io.FileOutputStream
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import android.app.Activity
 import android.util.Base64
+import androidx.core.graphics.createBitmap
 
 class ScreenCaptureService : Service() {
     private var mediaProjection: MediaProjection? = null
@@ -97,7 +98,7 @@ class ScreenCaptureService : Service() {
     }
 
     private fun startCapture(resultCode: Int, data: Intent) {
-        val mediaProjectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        val mediaProjectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, data)
 
         val mediaProjectionCallback = object : MediaProjection.Callback() {
@@ -148,7 +149,7 @@ class ScreenCaptureService : Service() {
                     }
                     lastFrameTime = currentTime
                     processFrame(image!! )
-                    image?.close()
+                    image.close()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error procesando frame: ${e.message}")
@@ -225,11 +226,7 @@ class ScreenCaptureService : Service() {
         val rowStride = planes[0].rowStride
         val rowPadding = rowStride - pixelStride * image.width
 
-        val bitmap = Bitmap.createBitmap(
-            image.width + rowPadding / pixelStride,
-            image.height,
-            Bitmap.Config.ARGB_8888
-        )
+        val bitmap = createBitmap(image.width + rowPadding / pixelStride, image.height)
         bitmap.copyPixelsFromBuffer(buffer)
 
         return Bitmap.createBitmap(bitmap, 0, 0, image.width, image.height)

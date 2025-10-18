@@ -42,7 +42,6 @@ class KeyAdapter(private val apiKeys: List<JSONObject>, private val auth: Fireba
     }
 
     private fun selectKey(key: String, holder: KeyViewHolder) {
-        // Aquí puedes implementar la lógica para seleccionar la clave
         println("Selected key ID: $key")
 
         val currentUser = auth.currentUser
