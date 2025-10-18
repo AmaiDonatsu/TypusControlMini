@@ -32,6 +32,12 @@
         android:layout_marginTop="16dp"
         tools:listitem="@layout/key_item" />
 
+    <TextView
+        android:id="@+id/keySelected"
+        android:layout_width="wrap_content"
+        android:text="not key selected"
+        android:layout_height="16dp" />
+
     <LinearLayout
         android:id="@+id/bottom_buttons"
         android:layout_width="match_parent"

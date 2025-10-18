@@ -25,12 +25,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnStartCapture: Button
     private lateinit var btnStopCapture: Button
     private lateinit var tvStatus: TextView
+    private lateinit var keySelected: TextView
     private lateinit var btnRefresh: Button
     private lateinit var rvKeys: RecyclerView
     private lateinit var keyAdapter: KeyAdapter
     private lateinit var auth: FirebaseAuth
     private var apiKeys: List<String> = emptyList()
     private var apiKeysJson: List<JSONObject> = emptyList()
+    private var selectedKeyJson: JSONObject? = null
+
+
 
     private val mediaProjectionManager by lazy {
         getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
@@ -72,6 +76,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("SetTextI18n")
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,8 +88,13 @@ class MainActivity : AppCompatActivity() {
         btnStartCapture = findViewById(R.id.btnStartCapture)
         btnStopCapture = findViewById(R.id.btnStopCapture)
         tvStatus = findViewById(R.id.tvStatus)
+        keySelected = findViewById(R.id.keySelected)
         btnRefresh = findViewById(R.id.btnRefresh)
         rvKeys = findViewById(R.id.rvKeys)
+
+        if (selectedKeyJson != null) {
+            keySelected.text = "android"
+        }
 
         // Configurar RecyclerView
         setupRecyclerView()
@@ -94,6 +104,8 @@ class MainActivity : AppCompatActivity() {
 
         // Cargar las API keys al inicio
         getApiKeys()
+
+        getApiKeyWithDevice("android")
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -115,6 +127,7 @@ class MainActivity : AppCompatActivity() {
 
         btnRefresh.setOnClickListener {
             getApiKeys()
+            getApiKeyWithDevice("android")
         }
 
         updateButtons()
@@ -212,4 +225,82 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    private fun getApiKeyWithDevice(device: String) {
+        val currentUser = auth.currentUser
+        currentUser?.getIdToken(false)?.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val token = task.result?.token
+                // The URL is constructed using the 'device' parameter for more flexibility.
+                val url = "http://10.0.2.2:8000/keys/get_by_device/$device"
+
+                Thread {
+                    try {
+                        val client = OkHttpClient()
+                        val request = Request.Builder()
+                            .url(url)
+                            .header("Authorization", "Bearer $token")
+                            .header("Content-Type", "application/json")
+                            .build()
+
+                        client.newCall(request).execute().use { response ->
+                            if (!response.isSuccessful) {
+                                when (response.code) {
+                                    401 -> {
+                                        runOnUiThread {
+                                            Toast.makeText(this, "Unauthorized", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                    404 -> {
+                                        runOnUiThread {
+                                            Toast.makeText(this, "Not found", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                    else -> {
+                                        println("error getting key with device: ${response.code}")
+                                        runOnUiThread {
+                                            Toast.makeText(this, "Error: ${response.code}", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                }
+                                return@use // Exit the use block early on failure
+                            }
+
+                            val responseBody = response.body?.string()
+                            if (responseBody != null) {
+                                println("Response body selected key: $responseBody")
+                                val jsonResponse = JSONObject(responseBody)
+                                selectedKeyJson = jsonResponse
+
+                                runOnUiThread {
+                                    try {
+                                        val keysData = selectedKeyJson?.getJSONObject("key")
+                                        keySelected.text = keysData?.optString("device", "No name")
+                                    } catch (e: Exception) {
+                                        println("Error al intentar obtener el key mediante device: ${e.message}")
+                                    }
+                                }
+
+
+                            } else {
+                                println("Response body is null")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        println("Error al intentar obtener el key mediante device: ${e.message}")
+                        runOnUiThread {
+                            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }.start()
+            } else {
+                println("Error al obtener el token")
+                runOnUiThread {
+                    Toast.makeText(this, "Error al obtener el token", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
 }
