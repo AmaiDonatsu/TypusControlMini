@@ -44,7 +44,7 @@ class MainActivity : AppCompatActivity() {
         Log.d("MainActivity", "onActivityResult: ${result.data}")
 
         if (result.resultCode == RESULT_OK && result.data != null) {
-            tvStatus.text = "Estate: Connecting..."
+            tvStatus.text = "State: Connecting to server..."
 
             val serverUrl = "ws://10.0.2.2:8000/ws/stream"
 
@@ -98,8 +98,8 @@ class MainActivity : AppCompatActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
     private fun setupRecyclerView() {
         rvKeys.layoutManager = LinearLayoutManager(this)
-        keyAdapter = KeyAdapter(apiKeysJson)
-        //rvKeys.adapter = keyAdapter
+        keyAdapter = KeyAdapter(apiKeysJson, auth)
+        rvKeys.adapter = keyAdapter
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -189,7 +189,8 @@ class MainActivity : AppCompatActivity() {
                                     runOnUiThread {
                                         Toast.makeText(this, "${apiKeys.size} keys loaded!", Toast.LENGTH_SHORT).show()
                                         println("API Keys: $apiKeys")
-                                        rvKeys.adapter = KeyAdapter(apiKeysJson)
+                                        rvKeys.adapter = KeyAdapter(apiKeysJson, auth
+                                    )
                                     }
                                 }
                             }
