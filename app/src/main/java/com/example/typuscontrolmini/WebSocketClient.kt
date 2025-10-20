@@ -4,6 +4,11 @@ import okhttp3.*
 import okio.ByteString
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
+import com.google.firebase.auth.FirebaseAuth
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+
+private val JSON = "application/json; charset=utf-8".toMediaType()
 
 class WebSocketClient(private val serverUrl: String) {
 
@@ -19,45 +24,69 @@ class WebSocketClient(private val serverUrl: String) {
         private const val TAG = "WebSocketClient"
     }
 
-    fun connect(onConnected: () -> Unit = {}, onDisconnected: () -> Unit = {}) {
-        val request = Request.Builder()
-            .url(serverUrl)
-            .build()
+    fun connect(
+        onConnected: () -> Unit = {},
+        onDisconnected: () -> Unit = {},
+        auth: FirebaseAuth,
+        device: String,
+        secretKey: String
+    ) {
+        val currentUser = auth.currentUser
+        if (currentUser == null) {
+            Log.e(TAG, "❌ No user logged in")
+            return
+        }
 
-        webSocket = client.newWebSocket(request, object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) {
-                Log.d(TAG, "✅ WebSocket conectado!")
-                isConnected = true
-                frameNumber = 0
-                onConnected()
-            }
+        currentUser.getIdToken(false).addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val token = task.result?.token
+                Log.d(TAG, "Token to send: $token")
 
-            override fun onMessage(webSocket: WebSocket, text: String) {
-                Log.d(TAG, "📨 Mensaje recibido: $text")
-            }
+                // 🎯 Construye la URL con los query parameters
+                val wsUrl = "$serverUrl?token=$token&secretKey=$secretKey&device=$device"
 
-            override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-                Log.d(TAG, "📨 Mensaje binario recibido: ${ bytes.size } bytes")
-            }
+                val request = Request.Builder()
+                    .url(wsUrl)
+                    .build()
 
-            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                Log.d(TAG, "⚠️ WebSocket cerrando: $code - $reason")
-                webSocket.close(1000, null)
-                isConnected = false
-            }
+                webSocket = client.newWebSocket(request, object : WebSocketListener() {
+                    override fun onOpen(webSocket: WebSocket, response: Response) {
+                        Log.d(TAG, "✅ WebSocket conectado!")
+                        isConnected = true
+                        frameNumber = 0
+                        onConnected()
+                    }
 
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                Log.d(TAG, "🔴 WebSocket cerrado: $code - $reason")
-                isConnected = false
-                onDisconnected()
-            }
+                    override fun onMessage(webSocket: WebSocket, text: String) {
+                        Log.d(TAG, "📨 Mensaje recibido: $text")
+                    }
 
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Log.e(TAG, "❌ Error in WebSocket: ${t.message}")
-                isConnected = false
-                onDisconnected()
+                    override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+                        Log.d(TAG, "📨 Mensaje binario recibido: ${ bytes.size } bytes")
+                    }
+
+                    override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                        Log.d(TAG, "⚠️ WebSocket cerrando: $code - $reason")
+                        webSocket.close(1000, null)
+                        isConnected = false
+                    }
+
+                    override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                        Log.d(TAG, "🔴 WebSocket cerrado: $code - $reason")
+                        isConnected = false
+                        onDisconnected()
+                    }
+
+                    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                        Log.e(TAG, "❌ Error in WebSocket: ${t.message}")
+                        isConnected = false
+                        onDisconnected()
+                    }
+                })
+            } else {
+                Log.e(TAG, "❌ Error getting token: ${task.exception?.message}")
             }
-        })
+        }
     }
 
     fun sendFrame(base64Data: String, width: Int, height: Int): Boolean {

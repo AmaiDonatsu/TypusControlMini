@@ -27,6 +27,7 @@ import java.nio.ByteBuffer
 import android.app.Activity
 import android.util.Base64
 import androidx.core.graphics.createBitmap
+import com.google.firebase.auth.FirebaseAuth
 
 class ScreenCaptureService : Service() {
     private var mediaProjection: MediaProjection? = null
@@ -52,6 +53,8 @@ class ScreenCaptureService : Service() {
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
         const val EXTRA_SERVER_URL = "server_url"
+        const val EXTRA_DEVICE = "device"
+        const val EXTRA_SECRET_KEY = "secret_key"
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -74,6 +77,13 @@ class ScreenCaptureService : Service() {
 
         val serverUrl = intent?.getStringExtra(EXTRA_SERVER_URL) ?: "ws://10.0.2.2:8000/ws/stream"
 
+        // --- FIX STARTS HERE ---
+        // Retrieve the additional data from the Intent's extras
+        val auth: FirebaseAuth? = FirebaseAuth.getInstance() // Or pass it serialized if needed
+        val device = intent?.getStringExtra(EXTRA_DEVICE) // Use your actual key
+        val secretKey = intent?.getStringExtra(EXTRA_SECRET_KEY) // Use your actual key
+        // --- FIX ENDS HERE ---
+
         if (resultCode == Activity.RESULT_OK && resultData != null) {
             Log.d(TAG, "✅ Datos válidos, iniciando captura...")
 
@@ -87,6 +97,9 @@ class ScreenCaptureService : Service() {
                 onDisconnected = {
                     Log.d(TAG, "🔴 WebSocket disconnected!")
                 },
+                auth = auth!!,
+                device = "$device",
+                secretKey = "$secretKey",
             )
 
         } else {

@@ -20,6 +20,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 
+@RequiresApi(Build.VERSION_CODES.LOLLIPOP)
 class MainActivity : AppCompatActivity() {
 
     private lateinit var btnStartCapture: Button
@@ -53,6 +54,11 @@ class MainActivity : AppCompatActivity() {
 
             val serverUrl = "ws://10.0.2.2:8000/ws/stream"
 
+            val keysData = selectedKeyJson?.getJSONObject("key")
+            val device = keysData?.optString("device", "No name")
+            val secretKey = keysData?.optString("secretKey", "No secret key")
+
+
             // MediaProjection
             val resultCode = result.resultCode
             val data = result.data
@@ -61,6 +67,8 @@ class MainActivity : AppCompatActivity() {
                 putExtra(ScreenCaptureService.EXTRA_RESULT_CODE, resultCode)
                 putExtra(ScreenCaptureService.EXTRA_RESULT_DATA, data)
                 putExtra(ScreenCaptureService.EXTRA_SERVER_URL, serverUrl)
+                putExtra(ScreenCaptureService.EXTRA_DEVICE, device)
+                putExtra(ScreenCaptureService.EXTRA_SECRET_KEY, secretKey)
             }
             startForegroundService(intent)
 
