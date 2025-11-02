@@ -215,11 +215,7 @@ class ScreenCaptureService : Service() {
             bitmap.compress(Bitmap.CompressFormat.JPEG, 80, stream)
             val jpegBytes = stream.toByteArray()
 
-            // to Base64
-            val base64String = Base64.encodeToString(jpegBytes, Base64.NO_WRAP)
-
-            // 📤 send in WebSocket
-            val sent = webSocketClient?.sendFrame(base64String, screenWidth, screenHeight) ?: false
+            val sent = webSocketClient?.sendFrame(jpegBytes) ?: false
 
             if (sent) {
                 frameCount++

@@ -188,8 +188,8 @@ class MainActivity : AppCompatActivity() {
                                         Toast.makeText(this, "Unauthorized", Toast.LENGTH_SHORT).show()
                                     }
                                     println("Unauthorized")
-                                    auth.signOut()
-                                    startActivity(Intent(this, LoginActivity::class.java))
+                                    //auth.signOut()
+                                    //startActivity(Intent(this, LoginActivity::class.java))
                                 }
                             }
 

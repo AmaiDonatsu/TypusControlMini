@@ -62,7 +62,7 @@ class WebSocketClient(private val serverUrl: String) {
                     }
 
                     override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-                        Log.d(TAG, "📨 Mensaje binario recibido: ${ bytes.size } bytes")
+                        Log.d(TAG, "📨 Mensaje binario recibido: ${bytes.size} bytes")
                     }
 
                     override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
@@ -89,7 +89,8 @@ class WebSocketClient(private val serverUrl: String) {
         }
     }
 
-    fun sendFrame(base64Data: String, width: Int, height: Int): Boolean {
+    // 🎯 MÉTODO CORREGIDO: Ahora recibe ByteArray y envía bytes puros
+    fun sendFrame(frameBytes: ByteArray): Boolean {
         Log.d(TAG, "📤 Enviando frame...")
 
         if (!isConnected) {
@@ -98,22 +99,15 @@ class WebSocketClient(private val serverUrl: String) {
         }
 
         try {
-            val json = JSONObject().apply {
-                put("type", "frame")
-                put("timestamp", System.currentTimeMillis())
-                put("frame_number", frameNumber++)
-                put("data", base64Data)
-                put("width", width)
-                put("height", height)
-            }
+            frameNumber++
 
-            val jsonStr = json.toString()
-            Log.d(TAG, "📦 Preparando frame ${frameNumber}: ${jsonStr.length} caracteres")
+            Log.d(TAG, "📦 Preparando frame ${frameNumber}: ${frameBytes.size} bytes")
 
-            val sent = webSocket?.send(jsonStr) ?: false
+            // 🔥 Envía los bytes directos como binary frame
+            val sent = webSocket?.send(ByteString.of(*frameBytes)) ?: false
 
             if (frameNumber % 15 == 0) {  // Log cada segundo
-                Log.d(TAG, "📤 Frame $frameNumber send")
+                Log.d(TAG, "📤 Frame $frameNumber enviado (${frameBytes.size} bytes)")
             }
 
             return sent
