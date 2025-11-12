@@ -19,7 +19,9 @@ import com.google.firebase.auth.FirebaseAuth
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
-
+import android.content.Context
+import android.provider.Settings
+import android.text.TextUtils
 @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
 class MainActivity : AppCompatActivity() {
 
@@ -311,4 +313,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+}
+
+//-------------
+
+fun isAccessibilityServiceEnabled(context: Context): Boolean {
+    val service = "${context.packageName}/.DeviceControlService"
+
+    val enabledServices = Settings.Secure.getString(
+        context.contentResolver,
+        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+    )
+
+    return enabledServices?.contains(service) == true
 }

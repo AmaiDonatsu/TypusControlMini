@@ -20,8 +20,16 @@ class WebSocketClient(private val serverUrl: String) {
     private var isConnected = false
     private var frameNumber = 0
 
+    // 🆕 NUEVO: Callback para recibir comandos
+    private var onCommandReceived: ((String) -> Unit)? = null
+
     companion object {
         private const val TAG = "WebSocketClient"
+    }
+
+    // 🆕 NUEVO: Método para setear el callback
+    fun setOnCommandReceived(callback: (String) -> Unit) {
+        this.onCommandReceived = callback
     }
 
     fun connect(
@@ -42,7 +50,6 @@ class WebSocketClient(private val serverUrl: String) {
                 val token = task.result?.token
                 Log.d(TAG, "Token to send: $token")
 
-                // 🎯 Construye la URL con los query parameters
                 val wsUrl = "$serverUrl?token=$token&secretKey=$secretKey&device=$device"
 
                 val request = Request.Builder()
@@ -59,6 +66,8 @@ class WebSocketClient(private val serverUrl: String) {
 
                     override fun onMessage(webSocket: WebSocket, text: String) {
                         Log.d(TAG, "📨 Mensaje recibido: $text")
+                        // 🆕 MODIFICADO: Procesar el comando
+                        onCommandReceived?.invoke(text)
                     }
 
                     override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
@@ -89,7 +98,6 @@ class WebSocketClient(private val serverUrl: String) {
         }
     }
 
-    // 🎯 MÉTODO CORREGIDO: Ahora recibe ByteArray y envía bytes puros
     fun sendFrame(frameBytes: ByteArray): Boolean {
         Log.d(TAG, "📤 Enviando frame...")
 
@@ -100,13 +108,11 @@ class WebSocketClient(private val serverUrl: String) {
 
         try {
             frameNumber++
-
             Log.d(TAG, "📦 Preparando frame ${frameNumber}: ${frameBytes.size} bytes")
 
-            // 🔥 Envía los bytes directos como binary frame
             val sent = webSocket?.send(ByteString.of(*frameBytes)) ?: false
 
-            if (frameNumber % 15 == 0) {  // Log cada segundo
+            if (frameNumber % 15 == 0) {
                 Log.d(TAG, "📤 Frame $frameNumber enviado (${frameBytes.size} bytes)")
             }
 
@@ -115,6 +121,11 @@ class WebSocketClient(private val serverUrl: String) {
             Log.e(TAG, "Error sending frame: ${e.message}")
             return false
         }
+    }
+
+    // 🆕 NUEVO: Método para enviar respuestas/confirmaciones
+    fun sendResponse(response: String): Boolean {
+        return webSocket?.send(response) ?: false
     }
 
     fun disconnect() {

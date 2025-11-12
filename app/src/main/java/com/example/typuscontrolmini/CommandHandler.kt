@@ -1,0 +1,134 @@
+package com.example.typuscontrolmini
+
+import android.util.Log
+import org.json.JSONObject
+
+class CommandHandler {
+
+    companion object {
+        private const val TAG = "CommandHandler"
+    }
+
+    // 🎯 Procesa el comando recibido
+    fun handleCommand(commandJson: String, onResponse: (String) -> Unit) {
+        try {
+            val json = JSONObject(commandJson)
+            val type = json.optString("type", "")
+
+            if (type != "command") {
+                Log.w(TAG, "⚠️ Mensaje no es un comando: $type")
+                return
+            }
+
+            val command = json.getString("command")
+            val commandId = json.optString("id", "") // Para rastrear respuestas
+
+            Log.d(TAG, "🎮 Procesando comando: $command")
+
+            // Obtener el servicio
+            val service = DeviceControlService.getInstance()
+            if (service == null) {
+                Log.e(TAG, "❌ AccessibilityService no disponible")
+                sendErrorResponse(commandId, "Service not available", onResponse)
+                return
+            }
+
+            // Ejecutar según el tipo de comando
+            when (command) {
+                "tap" -> {
+                    val x = json.getDouble("x").toFloat()
+                    val y = json.getDouble("y").toFloat()
+
+                    service.performTap(x, y) { success ->
+                        if (success) {
+                            sendSuccessResponse(commandId, "Tap ejecutado", onResponse)
+                        } else {
+                            sendErrorResponse(commandId, "Tap falló", onResponse)
+                        }
+                    }
+                }
+
+                "swipe" -> {
+                    val startX = json.getDouble("startX").toFloat()
+                    val startY = json.getDouble("startY").toFloat()
+                    val endX = json.getDouble("endX").toFloat()
+                    val endY = json.getDouble("endY").toFloat()
+                    val duration = json.optLong("duration", 300)
+
+                    service.performSwipe(startX, startY, endX, endY, duration) { success ->
+                        if (success) {
+                            sendSuccessResponse(commandId, "Swipe ejecutado", onResponse)
+                        } else {
+                            sendErrorResponse(commandId, "Swipe falló", onResponse)
+                        }
+                    }
+                }
+
+                "back" -> {
+                    service.performBack { success ->
+                        if (success) {
+                            sendSuccessResponse(commandId, "Back ejecutado", onResponse)
+                        } else {
+                            sendErrorResponse(commandId, "Back falló", onResponse)
+                        }
+                    }
+                }
+
+                "home" -> {
+                    service.performHome { success ->
+                        if (success) {
+                            sendSuccessResponse(commandId, "Home ejecutado", onResponse)
+                        } else {
+                            sendErrorResponse(commandId, "Home falló", onResponse)
+                        }
+                    }
+                }
+
+                "recents" -> {
+                    service.performRecents { success ->
+                        if (success) {
+                            sendSuccessResponse(commandId, "Recents ejecutado", onResponse)
+                        } else {
+                            sendErrorResponse(commandId, "Recents falló", onResponse)
+                        }
+                    }
+                }
+
+                else -> {
+                    Log.w(TAG, "⚠️ Comando desconocido: $command")
+                    sendErrorResponse(commandId, "Unknown command: $command", onResponse)
+                }
+            }
+
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error procesando comando: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+
+    // 📤 Enviar respuesta exitosa
+    private fun sendSuccessResponse(commandId: String, message: String, onResponse: (String) -> Unit) {
+        val response = JSONObject().apply {
+            put("type", "response")
+            put("id", commandId)
+            put("status", "success")
+            put("message", message)
+        }
+
+        Log.d(TAG, "✅ Enviando respuesta exitosa: $message")
+        onResponse(response.toString())
+    }
+
+    // 📤 Enviar respuesta de error
+    private fun sendErrorResponse(commandId: String, error: String, onResponse: (String) -> Unit) {
+        val response = JSONObject().apply {
+            put("type", "response")
+            put("id", commandId)
+            put("status", "error")
+            put("error", error)
+        }
+
+        Log.e(TAG, "❌ Enviando respuesta de error: $error")
+        onResponse(response.toString())
+    }
+}

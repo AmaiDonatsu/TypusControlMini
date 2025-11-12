@@ -45,6 +45,9 @@ class ScreenCaptureService : Service() {
     private var screenWidth = 0
     private var screenHeight = 0
 
+    private val commandHandler = CommandHandler()
+
+
     companion object {
         private const val TAG = "ScreenCaptureService"
         private const val NOTIFICATION_ID = 1001
@@ -60,14 +63,9 @@ class ScreenCaptureService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // ⚡ PRIMERO: Notificación INMEDIATA
         startForeground(NOTIFICATION_ID, createNotification())
 
-        //Log.d(TAG, "Intent recibido: $intent")
-        //Log.d(TAG, "Extras: ${intent?.extras}")
-
-        // DESPUÉS: Procesamos los datos
-        val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0  // Default 0
+        val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
         val resultData: Intent? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent?.getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
         } else {
@@ -76,22 +74,31 @@ class ScreenCaptureService : Service() {
         }
 
         val serverUrl = intent?.getStringExtra(EXTRA_SERVER_URL) ?: "ws://10.0.2.2:8000/ws/stream"
-
-        // --- FIX STARTS HERE ---
-        // Retrieve the additional data from the Intent's extras
-        val auth: FirebaseAuth? = FirebaseAuth.getInstance() // Or pass it serialized if needed
-        val device = intent?.getStringExtra(EXTRA_DEVICE) // Use your actual key
-        val secretKey = intent?.getStringExtra(EXTRA_SECRET_KEY) // Use your actual key
-        // --- FIX ENDS HERE ---
+        val auth: FirebaseAuth? = FirebaseAuth.getInstance()
+        val device = intent?.getStringExtra(EXTRA_DEVICE)
+        val secretKey = intent?.getStringExtra(EXTRA_SECRET_KEY)
 
         if (resultCode == Activity.RESULT_OK && resultData != null) {
             Log.d(TAG, "✅ Datos válidos, iniciando captura...")
 
-            // Connect WebSocket
             webSocketClient = WebSocketClient(serverUrl)
+
+            // 🆕 AGREGAR ESTO: Configurar callback de comandos
+            webSocketClient?.setOnCommandReceived { commandJson ->
+                Log.d(TAG, "📨 Comando recibido: $commandJson")
+
+                // Procesar el comando con el handler
+                commandHandler.handleCommand(commandJson) { response ->
+
+                    webSocketClient?.sendResponse(response)
+                    Log.d(TAG, "📤 Respuesta enviada: $response")
+                }
+            }
+            // FIN DE LO NUEVO 🆕
+
             webSocketClient?.connect(
                 onConnected = {
-                    Log.d(TAG, "✅ WebSocket conectado!")
+                    Log.d(TAG, "✅ WebSocket conectado y listo para comandos!")
                     startCapture(resultCode, resultData)
                 },
                 onDisconnected = {
@@ -137,12 +144,6 @@ class ScreenCaptureService : Service() {
         val density = metrics.densityDpi
 
         Log.d(TAG, "Capturing in: ${width}x${height}")
-
-        // frames dir
-        //val outputDir = File(getExternalFilesDir(null), "captures")
-        //if (!outputDir.exists()) {
-        //    outputDir.mkdirs()
-        //}
 
         // Thread to avoid block UI
         handlerThread = HandlerThread("ScreenCaptureThread").apply { start() }
