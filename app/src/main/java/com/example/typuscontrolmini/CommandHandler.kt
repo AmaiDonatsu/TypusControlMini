@@ -2,6 +2,7 @@ package com.example.typuscontrolmini
 
 import android.util.Log
 import org.json.JSONObject
+import org.json.JSONArray
 
 class CommandHandler {
 
@@ -21,11 +22,10 @@ class CommandHandler {
             }
 
             val command = json.getString("command")
-            val commandId = json.optString("id", "") // Para rastrear respuestas
+            val commandId = json.optString("id", "") // track responses
 
             Log.d(TAG, "🎮 Procesando comando: $command")
 
-            // Obtener el servicio
             val service = DeviceControlService.getInstance()
             if (service == null) {
                 Log.e(TAG, "❌ AccessibilityService no disponible")
@@ -92,6 +92,46 @@ class CommandHandler {
                             sendErrorResponse(commandId, "Recents falló", onResponse)
                         }
                     }
+                }
+
+                "getUI" -> {
+                    val hierarchy = service.getUIHierarchy()
+
+                    val response = JSONObject().apply {
+                        put("type", "ui_data")
+                        put("id", commandId)
+                        put("hierarchy", JSONObject(hierarchy))
+                    }
+
+                    onResponse(response.toString())
+                }
+
+                "getElements" -> {
+                    val elements = service.getInteractableElements()
+
+                    val elementsArray = JSONArray()
+                    elements.forEach { element ->
+                        val elementJson = JSONObject().apply {
+                            put("class", element.className)
+                            put("text", element.text)
+                            put("description", element.contentDescription)
+                            put("id", element.resourceId)
+                            put("clickable", element.clickable)
+                            put("x", element.x)
+                            put("y", element.y)
+                            put("width", element.width)
+                            put("height", element.height)
+                        }
+                        elementsArray.put(elementJson)
+                    }
+
+                    val response = JSONObject().apply {
+                        put("type", "elements_data")
+                        put("id", commandId)
+                        put("elements", elementsArray)
+                    }
+
+                    onResponse(response.toString())
                 }
 
                 else -> {

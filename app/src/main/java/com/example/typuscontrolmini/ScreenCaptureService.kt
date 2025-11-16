@@ -83,18 +83,14 @@ class ScreenCaptureService : Service() {
 
             webSocketClient = WebSocketClient(serverUrl)
 
-            // 🆕 AGREGAR ESTO: Configurar callback de comandos
             webSocketClient?.setOnCommandReceived { commandJson ->
                 Log.d(TAG, "📨 Comando recibido: $commandJson")
 
-                // Procesar el comando con el handler
                 commandHandler.handleCommand(commandJson) { response ->
-
                     webSocketClient?.sendResponse(response)
                     Log.d(TAG, "📤 Respuesta enviada: $response")
                 }
             }
-            // FIN DE LO NUEVO 🆕
 
             webSocketClient?.connect(
                 onConnected = {

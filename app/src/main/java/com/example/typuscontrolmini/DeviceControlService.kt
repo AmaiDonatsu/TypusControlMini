@@ -4,6 +4,7 @@ import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 
 class DeviceControlService: AccessibilityService() {
     companion object {
@@ -98,4 +99,136 @@ class DeviceControlService: AccessibilityService() {
         val result = performGlobalAction(GLOBAL_ACTION_RECENTS)
         callback?.invoke(result)
     }
+
+    fun getUIHierarchy(): String {
+        val rootNode = rootInActiveWindow
+
+        if (rootNode == null) {
+            Log.w(TAG, "⚠️ No hay ventana activa")
+            return "{\"error\": \"No active window\"}"
+        }
+
+        val hierarchy = buildHierarchyJSON(rootNode)
+        rootNode.recycle() // Importante: liberar memoria
+
+        return hierarchy
+    }
+
+    private fun buildHierarchyJSON(node: AccessibilityNodeInfo, depth: Int = 0): String {
+        val json = StringBuilder()
+        json.append("{\n")
+
+        json.append("  ".repeat(depth + 1))
+        json.append("\"class\": \"${node.className}\",\n")
+
+        json.append("  ".repeat(depth + 1))
+        json.append("\"text\": \"${node.text ?: ""}\",\n")
+
+        json.append("  ".repeat(depth + 1))
+        json.append("\"contentDescription\": \"${node.contentDescription ?: ""}\",\n")
+
+        json.append("  ".repeat(depth + 1))
+        json.append("\"viewIdResourceName\": \"${node.viewIdResourceName ?: ""}\",\n")
+
+        // Propiedades útiles
+        json.append("  ".repeat(depth + 1))
+        json.append("\"clickable\": ${node.isClickable},\n")
+
+        json.append("  ".repeat(depth + 1))
+        json.append("\"enabled\": ${node.isEnabled},\n")
+
+        json.append("  ".repeat(depth + 1))
+        json.append("\"focusable\": ${node.isFocusable},\n")
+
+        json.append("  ".repeat(depth + 1))
+        json.append("\"scrollable\": ${node.isScrollable},\n")
+
+        // Bounds (coordenadas en pantalla)
+        val bounds = android.graphics.Rect()
+        node.getBoundsInScreen(bounds)
+        json.append("  ".repeat(depth + 1))
+        json.append("\"bounds\": {")
+        json.append("\"left\": ${bounds.left}, \"top\": ${bounds.top}, ")
+        json.append("\"right\": ${bounds.right}, \"bottom\": ${bounds.bottom}")
+        json.append("},\n")
+
+        json.append("  ".repeat(depth + 1))
+        json.append("\"children\": [\n")
+
+        val childCount = node.childCount
+        for (i in 0 until childCount) {
+            val child = node.getChild(i)
+            if (child != null) {
+                json.append("  ".repeat(depth + 2))
+                json.append(buildHierarchyJSON(child, depth + 2))
+                if (i < childCount - 1) json.append(",")
+                json.append("\n")
+                child.recycle()
+            }
+        }
+
+        json.append("  ".repeat(depth + 1))
+        json.append("]\n")
+
+        json.append("  ".repeat(depth))
+        json.append("}")
+
+        return json.toString()
+    }
+
+    fun getInteractableElements(): List<UIElement> {
+        val rootNode = rootInActiveWindow ?: return emptyList()
+        val elements = mutableListOf<UIElement>()
+
+        findInteractableElements(rootNode, elements)
+        rootNode.recycle()
+
+        return elements
+    }
+
+    private fun findInteractableElements(
+        node: AccessibilityNodeInfo,
+        elements: MutableList<UIElement>
+    ) {
+        // Si es clickable o tiene texto, es interesante
+        if (node.isClickable || node.text?.isNotEmpty() == true) {
+            val bounds = android.graphics.Rect()
+            node.getBoundsInScreen(bounds)
+
+            elements.add(UIElement(
+                className = node.className?.toString() ?: "",
+                text = node.text?.toString() ?: "",
+                contentDescription = node.contentDescription?.toString() ?: "",
+                resourceId = node.viewIdResourceName ?: "",
+                clickable = node.isClickable,
+                scrollable = node.isScrollable,
+                x = bounds.centerX(),
+                y = bounds.centerY(),
+                width = bounds.width(),
+                height = bounds.height()
+            ))
+        }
+
+        // Recursión en hijos
+        for (i in 0 until node.childCount) {
+            node.getChild(i)?.let { child ->
+                findInteractableElements(child, elements)
+                child.recycle()
+            }
+        }
+    }
+
 }
+
+data class UIElement(
+    val className: String,
+    val text: String,
+    val contentDescription: String,
+    val resourceId: String,
+    val clickable: Boolean,
+    val scrollable: Boolean,
+    val x: Int,
+    val y: Int,
+    val width: Int,
+    val height: Int
+)
