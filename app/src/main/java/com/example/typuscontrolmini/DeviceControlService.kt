@@ -6,6 +6,8 @@ import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 
 class DeviceControlService: AccessibilityService() {
     companion object {
@@ -126,15 +128,29 @@ class DeviceControlService: AccessibilityService() {
     }
 
     fun inputText(text: String, callback: ((Boolean) -> Unit)? = null) {
-        Log.d(TAG, "⌨️ Escribiendo texto: $text")
+        Log.d(TAG, "⌨️ Iniciando intento de escribir texto: $text")
+        // Iniciamos con 5 reintentos (aprox 1 segundo de persistencia)
+        retryInputText(text, 5, callback)
+    }
+
+    private fun retryInputText(text: String, retriesLeft: Int, callback: ((Boolean) -> Unit)?) {
         val rootNode = rootInActiveWindow
+        
+        // Si no hay ventana, reintentar si quedan intentos
         if (rootNode == null) {
-            Log.e(TAG, "❌ No hay ventana activa")
-            callback?.invoke(false)
+            if (retriesLeft > 0) {
+                Log.w(TAG, "⚠️ No hay ventana activa, reintentando ($retriesLeft)...")
+                Handler(Looper.getMainLooper()).postDelayed({
+                    retryInputText(text, retriesLeft - 1, callback)
+                }, 200)
+            } else {
+                Log.e(TAG, "❌ No hay ventana activa tras reintentos")
+                callback?.invoke(false)
+            }
             return
         }
 
-        // Buscar el nodo con foco de entrada
+        // Buscar foco
         val focus = rootNode.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
         if (focus != null && focus.isEditable) {
             val arguments = Bundle()
@@ -145,9 +161,17 @@ class DeviceControlService: AccessibilityService() {
             rootNode.recycle()
             callback?.invoke(result)
         } else {
-            Log.w(TAG, "⚠️ No se encontró campo de texto con foco")
+            // Si no hay foco, liberar nodo y reintentar
             rootNode.recycle()
-            callback?.invoke(false)
+            if (retriesLeft > 0) {
+                Log.d(TAG, "⏳ Foco no encontrado, reintentando en 200ms ($retriesLeft)...")
+                Handler(Looper.getMainLooper()).postDelayed({
+                    retryInputText(text, retriesLeft - 1, callback)
+                }, 200)
+            } else {
+                Log.w(TAG, "⚠️ No se encontró campo de texto con foco tras reintentos")
+                callback?.invoke(false)
+            }
         }
     }
 
