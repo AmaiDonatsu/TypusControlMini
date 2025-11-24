@@ -5,6 +5,7 @@ import android.graphics.Path
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.os.Bundle
 
 class DeviceControlService: AccessibilityService() {
     companion object {
@@ -54,6 +55,30 @@ class DeviceControlService: AccessibilityService() {
         }, null)
     }
 
+    fun performPress(x: Float, y: Float, duration: Long, callback: ((Boolean) -> Unit)? = null) {
+        Log.d(TAG, "👆⏳ Ejecutando pulsación en ($x, $y) por ${duration}ms")
+
+        val path = Path().apply {
+            moveTo(x, y)
+        }
+
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, duration))
+            .build()
+
+        dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription?) {
+                Log.d(TAG, "✅ Pulsación completada")
+                callback?.invoke(true)
+            }
+
+            override fun onCancelled(gestureDescription: GestureDescription?) {
+                Log.e(TAG, "❌ Pulsación cancelada")
+                callback?.invoke(false)
+            }
+        }, null)
+    }
+
     fun performSwipe(
         startX: Float, startY: Float,
         endX: Float, endY: Float,
@@ -98,6 +123,32 @@ class DeviceControlService: AccessibilityService() {
         Log.d(TAG, "📱 Ejecutando Recents")
         val result = performGlobalAction(GLOBAL_ACTION_RECENTS)
         callback?.invoke(result)
+    }
+
+    fun inputText(text: String, callback: ((Boolean) -> Unit)? = null) {
+        Log.d(TAG, "⌨️ Escribiendo texto: $text")
+        val rootNode = rootInActiveWindow
+        if (rootNode == null) {
+            Log.e(TAG, "❌ No hay ventana activa")
+            callback?.invoke(false)
+            return
+        }
+
+        // Buscar el nodo con foco de entrada
+        val focus = rootNode.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        if (focus != null && focus.isEditable) {
+            val arguments = Bundle()
+            arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+            val result = focus.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+            Log.d(TAG, "✅ Texto establecido: $result")
+            focus.recycle()
+            rootNode.recycle()
+            callback?.invoke(result)
+        } else {
+            Log.w(TAG, "⚠️ No se encontró campo de texto con foco")
+            rootNode.recycle()
+            callback?.invoke(false)
+        }
     }
 
     fun getUIHierarchy(): String {

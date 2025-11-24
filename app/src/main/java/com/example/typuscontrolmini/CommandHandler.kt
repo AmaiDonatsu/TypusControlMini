@@ -48,6 +48,20 @@ class CommandHandler {
                     }
                 }
 
+                "press" -> {
+                    val x = json.getDouble("x").toFloat()
+                    val y = json.getDouble("y").toFloat()
+                    val duration = json.optLong("duration", 500)
+
+                    service.performPress(x, y, duration) { success ->
+                        if (success) {
+                            sendSuccessResponse(commandId, "Press ejecutado", onResponse)
+                        } else {
+                            sendErrorResponse(commandId, "Press falló", onResponse)
+                        }
+                    }
+                }
+
                 "swipe" -> {
                     val startX = json.getDouble("startX").toFloat()
                     val startY = json.getDouble("startY").toFloat()
@@ -60,6 +74,17 @@ class CommandHandler {
                             sendSuccessResponse(commandId, "Swipe ejecutado", onResponse)
                         } else {
                             sendErrorResponse(commandId, "Swipe falló", onResponse)
+                        }
+                    }
+                }
+
+                "inputText" -> {
+                    val text = json.getString("text")
+                    service.inputText(text) { success ->
+                        if (success) {
+                            sendSuccessResponse(commandId, "Texto escrito", onResponse)
+                        } else {
+                            sendErrorResponse(commandId, "Fallo al escribir texto (¿hay foco?)", onResponse)
                         }
                     }
                 }
