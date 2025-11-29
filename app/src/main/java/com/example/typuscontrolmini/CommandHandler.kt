@@ -33,15 +33,42 @@ class CommandHandler {
                 return
             }
 
-            // Ejecutar según el tipo de comando
+
             when (command) {
                 "tap" -> {
                     val x = json.getDouble("x").toFloat()
                     val y = json.getDouble("y").toFloat()
 
-                    service.performTap(x, y) { success ->
+                    // send element taped
+                    service.performTap(x, y) { success, element ->
                         if (success) {
-                            sendSuccessResponse(commandId, "Tap ejecutado", onResponse)
+                            val response = JSONObject().apply {
+                                put("type", "response")
+                                put("id", commandId)
+                                put("status", "success")
+                                put("message", "Tap ejecutado")
+
+
+                                if (element != null) {
+                                    val elementJson = JSONObject().apply {
+                                        put("class", element.className)
+                                        put("text", element.text)
+                                        put("id", element.resourceId)
+                                        put("description", element.contentDescription)
+                                        // Agregamos info extra útil
+                                        put("clickable", element.clickable)
+                                        put("bounds", JSONObject().apply {
+                                            put("x", element.x)
+                                            put("y", element.y)
+                                            put("w", element.width)
+                                            put("h", element.height)
+                                        })
+                                    }
+                                    put("tapped_element", elementJson)
+                                }
+                            }
+                            Log.d(TAG, "✅ Tap exitoso con info de elemento: ${element?.className}")
+                            onResponse(response.toString())
                         } else {
                             sendErrorResponse(commandId, "Tap falló", onResponse)
                         }

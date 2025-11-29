@@ -2,6 +2,7 @@ package com.example.typuscontrolmini
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
+import android.graphics.Rect
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -33,8 +34,17 @@ class DeviceControlService: AccessibilityService() {
         Log.d(TAG, "🔴 Servicio destruido")
     }
 
-    fun performTap(x: Float, y: Float, callback: ((Boolean) -> Unit)? = null) {
+    // Modificado: Ahora el callback recibe (Success, Element?)
+    fun performTap(x: Float, y: Float, callback: ((Boolean, UIElement?) -> Unit)? = null) {
         Log.d(TAG, "👆 Ejecutando tap en ($x, $y)")
+
+        // 1. Intentar encontrar qué hay en esas coordenadas ANTES del tap
+        var tappedElement: UIElement? = null
+        val root = rootInActiveWindow
+        if (root != null) {
+            tappedElement = findNodeAt(root, x.toInt(), y.toInt())
+            root.recycle()
+        }
 
         val path = Path().apply {
             moveTo(x, y)
@@ -47,14 +57,52 @@ class DeviceControlService: AccessibilityService() {
         dispatchGesture(gesture, object : GestureResultCallback() {
             override fun onCompleted(gestureDescription: GestureDescription?) {
                 Log.d(TAG, "✅ Tap completado")
-                callback?.invoke(true)
+                // Pasamos el elemento encontrado
+                callback?.invoke(true, tappedElement)
             }
 
             override fun onCancelled(gestureDescription: GestureDescription?) {
                 Log.e(TAG, "❌ Tap cancelado")
-                callback?.invoke(false)
+                callback?.invoke(false, null)
             }
         }, null)
+    }
+
+    // Lógica para encontrar el nodo más profundo en (X, Y)
+    private fun findNodeAt(node: AccessibilityNodeInfo, x: Int, y: Int): UIElement? {
+        val bounds = Rect()
+        node.getBoundsInScreen(bounds)
+
+        if (!bounds.contains(x, y)) {
+            return null
+        }
+
+        // Buscamos en los hijos primero (para encontrar el más específico/profundo)
+        // Iteramos al revés (de último a primero) asumiendo que los últimos dibujados están "arriba"
+        for (i in node.childCount - 1 downTo 0) {
+            val child = node.getChild(i)
+            if (child != null) {
+                val found = findNodeAt(child, x, y)
+                child.recycle() // Importante reciclar el hijo
+                if (found != null) {
+                    return found
+                }
+            }
+        }
+
+        // Si llegamos aquí, este nodo contiene el punto y sus hijos no (o no tiene hijos)
+        return UIElement(
+            className = node.className?.toString() ?: "",
+            text = node.text?.toString() ?: "",
+            contentDescription = node.contentDescription?.toString() ?: "",
+            resourceId = node.viewIdResourceName ?: "",
+            clickable = node.isClickable,
+            scrollable = node.isScrollable,
+            x = bounds.centerX(),
+            y = bounds.centerY(),
+            width = bounds.width(),
+            height = bounds.height()
+        )
     }
 
     fun performPress(x: Float, y: Float, duration: Long, callback: ((Boolean) -> Unit)? = null) {
