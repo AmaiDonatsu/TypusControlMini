@@ -54,7 +54,8 @@ class MainActivity : AppCompatActivity() {
         if (result.resultCode == RESULT_OK && result.data != null) {
             tvStatus.text = "State: Connecting to server..."
 
-            val serverUrl = "ws://10.0.2.2:8000/ws/stream"
+            // CORREGIDO: Usamos wss (Secure WebSocket) porque el dominio es https
+            val serverUrl = "wss://izabella-unpearled-clearly.ngrok-free.dev/ws/stream"
 
             val keysData = selectedKeyJson?.getJSONObject("key")
             val device = keysData?.optString("device", "No name")
@@ -175,10 +176,10 @@ class MainActivity : AppCompatActivity() {
                     try {
                         println("User ID: $userId")
                         println("Token to send: $token")
-                        println("making URL: http://10.0.2.2:8000/keys/list_available")
+                        println("making URL: https://izabella-unpearled-clearly.ngrok-free.dev/keys/list_available")
                         val client = OkHttpClient()
                         val request = Request.Builder()
-                            .url("http://10.0.2.2:8000/keys/list_available")
+                            .url("https://izabella-unpearled-clearly.ngrok-free.dev/keys/list_available")
                             .header("Authorization", "Bearer $token")
                             .header("Content-Type", "application/json")
                             .build()
@@ -242,7 +243,7 @@ class MainActivity : AppCompatActivity() {
             if (task.isSuccessful) {
                 val token = task.result?.token
                 // The URL is constructed using the 'device' parameter for more flexibility.
-                val url = "http://10.0.2.2:8000/keys/get_by_device/$device"
+                val url = "https://izabella-unpearled-clearly.ngrok-free.dev/keys/get_by_device/$device"
 
                 Thread {
                     try {

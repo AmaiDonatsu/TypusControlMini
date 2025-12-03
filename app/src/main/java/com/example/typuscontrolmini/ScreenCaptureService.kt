@@ -26,7 +26,6 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import android.app.Activity
 import android.util.Base64
-import androidx.core.graphics.createBitmap
 import com.google.firebase.auth.FirebaseAuth
 
 class ScreenCaptureService : Service() {
@@ -49,7 +48,8 @@ class ScreenCaptureService : Service() {
 
 
     companion object {
-        private const val TAG = "ScreenCaptureService"
+        // Unificamos TAG para debug fácil
+        private const val TAG = "DEBUG_WS" 
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "screen_capture_channel"
 
@@ -63,6 +63,7 @@ class ScreenCaptureService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d(TAG, "[SERVICE] 🟢 onStartCommand llamado")
         startForeground(NOTIFICATION_ID, createNotification())
 
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
@@ -73,32 +74,34 @@ class ScreenCaptureService : Service() {
             intent?.getParcelableExtra(EXTRA_RESULT_DATA)
         }
 
-        val serverUrl = intent?.getStringExtra(EXTRA_SERVER_URL) ?: "ws://10.0.2.2:8000/ws/stream"
+        val serverUrl = intent?.getStringExtra(EXTRA_SERVER_URL) ?: "ws://izabella-unpearled-clearly.ngrok-free.dev/ws/stream"
         val auth: FirebaseAuth? = FirebaseAuth.getInstance()
         val device = intent?.getStringExtra(EXTRA_DEVICE)
         val secretKey = intent?.getStringExtra(EXTRA_SECRET_KEY)
 
+        Log.d(TAG, "[SERVICE] Params: resultCode=$resultCode, device=$device, url=$serverUrl")
+
         if (resultCode == Activity.RESULT_OK && resultData != null) {
-            Log.d(TAG, "✅ Datos válidos, iniciando captura...")
+            Log.d(TAG, "[SERVICE] ✅ Datos de MediaProjection válidos. Inicializando cliente WS...")
 
             webSocketClient = WebSocketClient(serverUrl)
 
             webSocketClient?.setOnCommandReceived { commandJson ->
-                Log.d(TAG, "📨 Comando recibido: $commandJson")
-
+                Log.d(TAG, "[SERVICE] 📨 Pasando comando a Handler: $commandJson")
                 commandHandler.handleCommand(commandJson) { response ->
                     webSocketClient?.sendResponse(response)
-                    Log.d(TAG, "📤 Respuesta enviada: $response")
                 }
             }
 
             webSocketClient?.connect(
                 onConnected = {
-                    Log.d(TAG, "✅ WebSocket conectado y listo para comandos!")
+                    Log.d(TAG, "[SERVICE] ✅ WS Conectado. Iniciando captura de pantalla...")
+                    // Importante: Ejecutar en Main Thread si es necesario, o asegurar que startCapture maneja hilos
                     startCapture(resultCode, resultData)
                 },
                 onDisconnected = {
-                    Log.d(TAG, "🔴 WebSocket disconnected!")
+                    Log.w(TAG, "[SERVICE] 🔴 WS Desconectado. Deteniendo servicio...")
+                    stopSelf()
                 },
                 auth = auth!!,
                 device = "$device",
@@ -106,7 +109,7 @@ class ScreenCaptureService : Service() {
             )
 
         } else {
-            Log.e(TAG, "❌ Datos inválidos para iniciar captura")
+            Log.e(TAG, "[SERVICE] ❌ Error: ResultCode no es OK o data es nula")
             stopSelf()
         }
 
@@ -114,12 +117,19 @@ class ScreenCaptureService : Service() {
     }
 
     private fun startCapture(resultCode: Int, data: Intent) {
-        val mediaProjectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, data)
+        Log.d(TAG, "[SERVICE] startCapture() invocado")
+        try {
+            val mediaProjectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, data)
+        } catch (e: Exception) {
+            Log.e(TAG, "[SERVICE] ❌ Excepción al obtener MediaProjection: ${e.message}")
+            stopSelf()
+            return
+        }
 
         val mediaProjectionCallback = object : MediaProjection.Callback() {
             override fun onStop() {
-                Log.d(TAG, "🛑 Capture stopping")
+                Log.w(TAG, "[SERVICE] 🛑 MediaProjection se detuvo por el sistema")
                 stopSelf()
             }
         }
@@ -127,59 +137,45 @@ class ScreenCaptureService : Service() {
         mediaProjection?.registerCallback(mediaProjectionCallback, null)
 
         if (mediaProjection == null) {
-            Log.e(TAG, "❌ cannot get MediaProjection")
+            Log.e(TAG, "[SERVICE] ❌ MediaProjection es NULL")
             stopSelf()
             return
         }
 
         val metrics = resources.displayMetrics
-
-        // Resolución al 50%
         val width = metrics.widthPixels / 2
         val height = metrics.heightPixels / 2
         val density = metrics.densityDpi
 
-        Log.d(TAG, "Capturing in: ${width}x${height}")
+        Log.d(TAG, "[SERVICE] Configurando VirtualDisplay: ${width}x${height} @ $density dpi")
 
-        // Thread to avoid block UI
         handlerThread = HandlerThread("ScreenCaptureThread").apply { start() }
         val handler = Handler(handlerThread!!.looper)
 
-        // ImageReader: "buzón" de frames
         imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
 
         imageReader?.setOnImageAvailableListener({ reader ->
-            var image: Image? = null
-            try {
-                while (reader.acquireLatestImage().also { image = it } != null) {
-                    val currentTime = System.currentTimeMillis()
-                    if (currentTime - lastFrameTime >= frameInterval) {
-                        image?.close()
-                        continue
-                    }
-                    lastFrameTime = currentTime
-                    processFrame(image!! )
-                    image.close()
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error procesando frame: ${e.message}")
-                image?.close()
-            }
             val currentTime = System.currentTimeMillis()
-
-            // ⏱️ Fps control: ~66ms (15 FPS)
-            if (currentTime - lastFrameTime >= frameInterval) {
-                lastFrameTime = currentTime
-
-                val image = reader.acquireLatestImage()
-                if (image != null) {
-                    processFrame(image)
-                    image.close()
+            
+            if (currentTime - lastFrameTime < frameInterval) {
+                // Descartar
+                var img = reader.acquireLatestImage()
+                while (img != null) {
+                    img.close()
+                    img = reader.acquireLatestImage()
                 }
+                return@setOnImageAvailableListener
+            }
+
+            // Procesar
+            val image = reader.acquireLatestImage()
+            if (image != null) {
+                lastFrameTime = currentTime
+                processFrame(image)
+                image.close() 
             }
         }, handler)
 
-        // VirtualDisplay: conect MediaProjection -> ImageReader
         try {
             virtualDisplay = mediaProjection?.createVirtualDisplay(
                 "ScreenCapture",
@@ -191,11 +187,11 @@ class ScreenCaptureService : Service() {
                 null,
                 null
             )
+            Log.d(TAG, "[SERVICE] ✅ VirtualDisplay creado exitosamente")
 
-            Log.d(TAG, "✅ Captura iniciada!")
-
-        } catch (e: IllegalStateException) {
-            Log.e(TAG, "❌ Error al crear VirtualDisplay: ${e.message}")
+        } catch (e: Exception) {
+            Log.e(TAG, "[SERVICE] ❌ Error fatal creando VirtualDisplay: ${e.message}")
+            e.printStackTrace()
             stopSelf()
             return
         }
@@ -204,38 +200,49 @@ class ScreenCaptureService : Service() {
 
     private fun processFrame(image: Image) {
         try {
-            // Image to Bitmap
             val bitmap = imageToBitmap(image)
-
-            // Bitmap to JPEG bytes
             val stream = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, stream)
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 70, stream)
             val jpegBytes = stream.toByteArray()
+            bitmap.recycle()
 
             val sent = webSocketClient?.sendFrame(jpegBytes) ?: false
 
             if (sent) {
                 frameCount++
+                // Log cada 60 frames (aprox 4 segs)
+                if (frameCount % 60 == 0) Log.d(TAG, "[SERVICE] ⚡ Stream estable. Frames enviados: $frameCount")
             } else {
-                Log.w(TAG, "⚠️ No se pudo enviar frame")
+                Log.w(TAG, "[SERVICE] ⚠️ Frame no enviado (sendFrame retornó false)")
             }
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error procesando frame: ${e.message}")
+            Log.e(TAG, "[SERVICE] ❌ Excepción en processFrame: ${e.message}")
+            e.printStackTrace()
         }
     }
 
     private fun imageToBitmap(image: Image): Bitmap {
-        val planes = image.planes
-        val buffer: ByteBuffer = planes[0].buffer
-        val pixelStride = planes[0].pixelStride
-        val rowStride = planes[0].rowStride
+        val plane = image.planes[0]
+        val buffer = plane.buffer
+        val pixelStride = plane.pixelStride
+        val rowStride = plane.rowStride
         val rowPadding = rowStride - pixelStride * image.width
 
-        val bitmap = createBitmap(image.width + rowPadding / pixelStride, image.height)
+        val bitmap = Bitmap.createBitmap(
+            image.width + rowPadding / pixelStride,
+            image.height,
+            Bitmap.Config.ARGB_8888
+        )
         bitmap.copyPixelsFromBuffer(buffer)
 
-        return Bitmap.createBitmap(bitmap, 0, 0, image.width, image.height)
+        if (rowPadding == 0) {
+            return bitmap
+        }
+
+        val cropped = Bitmap.createBitmap(bitmap, 0, 0, image.width, image.height)
+        bitmap.recycle()
+        return cropped
     }
 
     private fun createNotification(): Notification {
@@ -258,12 +265,18 @@ class ScreenCaptureService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        Log.d(TAG, "🛑 Deteniendo captura. Total de frames: $frameCount")
+        Log.d(TAG, "[SERVICE] 🛑 onDestroy() llamado. Limpiando recursos...")
+        Log.d(TAG, "[SERVICE] Total frames procesados: $frameCount")
 
-        virtualDisplay?.release()
-        imageReader?.close()
-        mediaProjection?.stop()
-        handlerThread?.quitSafely()
+        try {
+            virtualDisplay?.release()
+            imageReader?.close()
+            mediaProjection?.stop()
+            handlerThread?.quitSafely()
+            webSocketClient?.disconnect()
+        } catch (e: Exception) {
+            Log.e(TAG, "[SERVICE] Error en cleanup: ${e.message}")
+        }
     }
 
 }

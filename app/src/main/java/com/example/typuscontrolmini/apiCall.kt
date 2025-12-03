@@ -9,7 +9,7 @@ private val JSON = "application/json; charset=utf-8".toMediaType()
 
 class ApiCall () {
 
-    private val urlBase = "http://10.0.2.2:8000"
+    private val urlBase = "https://izabella-unpearled-clearly.ngrok-free.dev"
     private val updateUrl = "$urlBase/keys/update_availability"
 
 
