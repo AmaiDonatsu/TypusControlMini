@@ -18,6 +18,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
 //import java.io.File
@@ -96,8 +97,12 @@ class ScreenCaptureService : Service() {
             webSocketClient?.connect(
                 onConnected = {
                     Log.d(TAG, "[SERVICE] ✅ WS Conectado. Iniciando captura de pantalla...")
-                    // Importante: Ejecutar en Main Thread si es necesario, o asegurar que startCapture maneja hilos
-                    startCapture(resultCode, resultData)
+                    // CORRECCIÓN: Ejecutar startCapture en el hilo principal
+                    // Esto es necesario porque registerCallback(..., null) usa el Looper actual,
+                    // y el hilo de OkHttp no tiene Looper.
+                    Handler(Looper.getMainLooper()).post {
+                        startCapture(resultCode, resultData)
+                    }
                 },
                 onDisconnected = {
                     Log.w(TAG, "[SERVICE] 🔴 WS Desconectado. Deteniendo servicio...")
@@ -134,6 +139,8 @@ class ScreenCaptureService : Service() {
             }
         }
 
+        // Aquí estaba el problema: pasar 'null' como handler usa el hilo actual.
+        // Al estar ahora en el Main Thread (gracias al fix arriba), esto funcionará.
         mediaProjection?.registerCallback(mediaProjectionCallback, null)
 
         if (mediaProjection == null) {
@@ -143,16 +150,22 @@ class ScreenCaptureService : Service() {
         }
 
         val metrics = resources.displayMetrics
-        val width = metrics.widthPixels / 2
-        val height = metrics.heightPixels / 2
+        
+        // --- CONFIGURACIÓN DE RESOLUCIÓN ---
+        val aspectRatio = metrics.heightPixels.toFloat() / metrics.widthPixels.toFloat()
+        val width = 480
+        val height = (width * aspectRatio).toInt()
         val density = metrics.densityDpi
 
-        Log.d(TAG, "[SERVICE] Configurando VirtualDisplay: ${width}x${height} @ $density dpi")
+        Log.d(TAG, "[SERVICE] Configurando VirtualDisplay: ${width}x${height} (Original: ${metrics.widthPixels}x${metrics.heightPixels})")
 
         handlerThread = HandlerThread("ScreenCaptureThread").apply { start() }
         val handler = Handler(handlerThread!!.looper)
 
-        imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
+        // Alineación a 64 bits para seguridad de hardware
+        val safeWidth = width + (64 - (width % 64)) % 64 
+        
+        imageReader = ImageReader.newInstance(safeWidth, height, PixelFormat.RGBA_8888, 2)
 
         imageReader?.setOnImageAvailableListener({ reader ->
             val currentTime = System.currentTimeMillis()
@@ -179,7 +192,7 @@ class ScreenCaptureService : Service() {
         try {
             virtualDisplay = mediaProjection?.createVirtualDisplay(
                 "ScreenCapture",
-                width,
+                safeWidth,
                 height,
                 density,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
@@ -187,7 +200,7 @@ class ScreenCaptureService : Service() {
                 null,
                 null
             )
-            Log.d(TAG, "[SERVICE] ✅ VirtualDisplay creado exitosamente")
+            Log.d(TAG, "[SERVICE] ✅ VirtualDisplay creado exitosamente: ${safeWidth}x${height}")
 
         } catch (e: Exception) {
             Log.e(TAG, "[SERVICE] ❌ Error fatal creando VirtualDisplay: ${e.message}")
@@ -202,7 +215,8 @@ class ScreenCaptureService : Service() {
         try {
             val bitmap = imageToBitmap(image)
             val stream = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 70, stream)
+            // Calidad 60
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 60, stream)
             val jpegBytes = stream.toByteArray()
             bitmap.recycle()
 
@@ -210,7 +224,6 @@ class ScreenCaptureService : Service() {
 
             if (sent) {
                 frameCount++
-                // Log cada 60 frames (aprox 4 segs)
                 if (frameCount % 60 == 0) Log.d(TAG, "[SERVICE] ⚡ Stream estable. Frames enviados: $frameCount")
             } else {
                 Log.w(TAG, "[SERVICE] ⚠️ Frame no enviado (sendFrame retornó false)")

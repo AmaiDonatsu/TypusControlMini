@@ -5,15 +5,20 @@ import okio.ByteString
 import java.util.concurrent.TimeUnit
 import com.google.firebase.auth.FirebaseAuth
 import okhttp3.MediaType.Companion.toMediaType
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 
 private val JSON = "application/json; charset=utf-8".toMediaType()
 
 class WebSocketClient(private val serverUrl: String) {
 
     private var webSocket: WebSocket? = null
-    private val client = OkHttpClient.Builder()
-        .readTimeout(0, TimeUnit.MILLISECONDS)
-        .build()
+    
+    // Usamos un cliente "inseguro" para desarrollo para evitar problemas de certificados con ngrok/IPs locales
+    private val client = getUnsafeOkHttpClient()
 
     private var isConnected = false
     private var frameNumber = 0
@@ -41,11 +46,12 @@ class WebSocketClient(private val serverUrl: String) {
 
         val currentUser = auth.currentUser
         if (currentUser == null) {
-            Log.e(TAG, "❌ Error Fatal: No hay usuario logueado en Firebase")
+            Log.e(TAG, "❌ Error Fatal: No hay usuario logueado en Firebase (currentUser es null)")
             return
         }
 
-        currentUser.getIdToken(false).addOnCompleteListener { task ->
+        // Forzar refresh del token para evitar problemas de caché/keystore
+        currentUser.getIdToken(true).addOnCompleteListener { task ->
             if (task.isSuccessful) {
                 val token = task.result?.token
                 // Log parcial del token para verificar sin exponer todo
@@ -114,6 +120,7 @@ class WebSocketClient(private val serverUrl: String) {
                 })
             } else {
                 Log.e(TAG, "❌ Error obteniendo token de Firebase: ${task.exception?.message}")
+                Log.e(TAG, "💡 SUGERENCIA: Intenta hacer Logout y volver a Loguearte, o borrar datos de la app.")
             }
         }
     }
@@ -169,4 +176,26 @@ class WebSocketClient(private val serverUrl: String) {
     }
 
     fun isConnected(): Boolean = isConnected
+
+    // Función auxiliar para ignorar errores SSL (Solo para Dev)
+    private fun getUnsafeOkHttpClient(): OkHttpClient {
+        try {
+            val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
+                override fun checkClientTrusted(chain: Array<java.security.cert.X509Certificate>, authType: String) {}
+                override fun checkServerTrusted(chain: Array<java.security.cert.X509Certificate>, authType: String) {}
+                override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = arrayOf()
+            })
+
+            val sslContext = SSLContext.getInstance("SSL")
+            sslContext.init(null, trustAllCerts, java.security.SecureRandom())
+
+            return OkHttpClient.Builder()
+                .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
+                .hostnameVerifier { _, _ -> true }
+                .readTimeout(0, TimeUnit.MILLISECONDS) // WebSocket necesita timeout infinito o 0
+                .build()
+        } catch (e: Exception) {
+            throw RuntimeException(e)
+        }
+    }
 }
