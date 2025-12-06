@@ -18,7 +18,9 @@ class WebSocketClient(private val serverUrl: String) {
     private var webSocket: WebSocket? = null
     
     // Usamos un cliente "inseguro" para desarrollo para evitar problemas de certificados con ngrok/IPs locales
-    private val client = getUnsafeOkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .readTimeout(0, TimeUnit.MILLISECONDS)
+        .build()
 
     private var isConnected = false
     private var frameNumber = 0

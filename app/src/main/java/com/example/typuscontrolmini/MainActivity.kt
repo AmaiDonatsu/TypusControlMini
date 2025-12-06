@@ -59,7 +59,7 @@ class MainActivity : AppCompatActivity() {
             tvStatus.text = "State: Connecting to server..."
 
             // CORREGIDO: Usamos wss (Secure WebSocket) porque el dominio es https
-            val serverUrl = "wss://izabella-unpearled-clearly.ngrok-free.dev/ws/stream"
+            val serverUrl = AppConfig.WS_URL
 
             val keysData = selectedKeyJson?.getJSONObject("key")
             Log.d("MainActivity", "Key data: $keysData")
@@ -187,10 +187,10 @@ class MainActivity : AppCompatActivity() {
                     try {
                         println("User ID: $userId")
                         println("Token to send: $token")
-                        println("making URL: https://izabella-unpearled-clearly.ngrok-free.dev/keys/list_available")
+                        println("making URL: ${AppConfig.BASE_URL}/keys/list_available")
                         val client = OkHttpClient()
                         val request = Request.Builder()
-                            .url("https://izabella-unpearled-clearly.ngrok-free.dev/keys/list_available")
+                            .url("${AppConfig.BASE_URL}/keys/list_available")
                             .header("Authorization", "Bearer $token")
                             .header("Content-Type", "application/json")
                             .build()
@@ -259,7 +259,7 @@ class MainActivity : AppCompatActivity() {
                 
                 // Encode the device name to handle spaces and special characters safely in the URL
                 val encodedDevice = Uri.encode(device)
-                val url = "https://izabella-unpearled-clearly.ngrok-free.dev/keys/get_by_device/$encodedDevice"
+                val url = "${AppConfig.BASE_URL}/keys/get_by_device/$encodedDevice"
 
                 Thread {
                     try {
