@@ -150,6 +150,16 @@
                 android:textStyle="bold"
                 android:textColor="?attr/colorPrimary"
                 android:layout_marginStart="8dp"/>
+
+            <ImageView
+                android:id="@+id/btnClearSelection"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:layout_marginStart="8dp"
+                android:visibility="gone"
+                app:tint="?attr/colorError"
+                tools:visibility="visible"/>
         </LinearLayout>
 
         <LinearLayout

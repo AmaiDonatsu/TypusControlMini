@@ -4,6 +4,7 @@ import okhttp3.Request
 import org.json.JSONObject
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaType
+import android.util.Log
 
 private val JSON = "application/json; charset=utf-8".toMediaType()
 
@@ -21,6 +22,7 @@ class ApiCall () {
             put("is_available", isAvailable)
             put("device", device)
         }.toString()
+        Log.d("ApiCall updateAvailability", "JSON enviado: $bodyJson")
 
         val request = Request.Builder()
             .url("${updateUrl}/$keyId")

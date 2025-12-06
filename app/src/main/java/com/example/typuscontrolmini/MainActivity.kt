@@ -4,10 +4,13 @@ import android.annotation.SuppressLint
 //import android.content.Context
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,14 +25,15 @@ import org.json.JSONObject
 import android.content.Context
 import android.provider.Settings
 import android.text.TextUtils
+
 @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
 class MainActivity : AppCompatActivity() {
-
     private lateinit var btnStartCapture: Button
     private lateinit var btnStopCapture: Button
     private lateinit var tvStatus: TextView
     private lateinit var keySelected: TextView
     private lateinit var btnRefresh: Button
+    private lateinit var btnClearSelection: ImageView
     private lateinit var rvKeys: RecyclerView
     private lateinit var keyAdapter: KeyAdapter
     private lateinit var auth: FirebaseAuth
@@ -58,6 +62,7 @@ class MainActivity : AppCompatActivity() {
             val serverUrl = "wss://izabella-unpearled-clearly.ngrok-free.dev/ws/stream"
 
             val keysData = selectedKeyJson?.getJSONObject("key")
+            Log.d("MainActivity", "Key data: $keysData")
             val device = keysData?.optString("device", "No name")
             val secretKey = keysData?.optString("secretKey", "No secret key")
 
@@ -100,6 +105,7 @@ class MainActivity : AppCompatActivity() {
         btnStopCapture = findViewById(R.id.btnStopCapture)
         tvStatus = findViewById(R.id.tvStatus)
         keySelected = findViewById(R.id.keySelected)
+        btnClearSelection = findViewById(R.id.btnClearSelection)
         btnRefresh = findViewById(R.id.btnRefresh)
         rvKeys = findViewById(R.id.rvKeys)
 
@@ -122,7 +128,12 @@ class MainActivity : AppCompatActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
     private fun setupRecyclerView() {
         rvKeys.layoutManager = LinearLayoutManager(this)
-        keyAdapter = KeyAdapter(apiKeysJson, auth)
+        keyAdapter = KeyAdapter(apiKeysJson, auth) {
+            // Callback: Se ejecuta cuando se selecciona o libera una key
+            // Refrescar lista y estado del dispositivo
+            getApiKeys()
+            getApiKeyWithDevice(android.os.Build.MODEL)
+        }
         rvKeys.adapter = keyAdapter
     }
 
@@ -138,7 +149,7 @@ class MainActivity : AppCompatActivity() {
 
         btnRefresh.setOnClickListener {
             getApiKeys()
-            getApiKeyWithDevice("android")
+            getApiKeyWithDevice(android.os.Build.MODEL)
         }
 
         updateButtons()
@@ -214,8 +225,11 @@ class MainActivity : AppCompatActivity() {
                                     runOnUiThread {
                                         Toast.makeText(this, "${apiKeys.size} keys loaded!", Toast.LENGTH_SHORT).show()
                                         println("API Keys: $apiKeys")
-                                        rvKeys.adapter = KeyAdapter(apiKeysJson, auth
-                                    )
+                                        // Actualizar el adapter manteniendo el callback
+                                        rvKeys.adapter = KeyAdapter(apiKeysJson, auth) {
+                                            getApiKeys()
+                                            getApiKeyWithDevice(android.os.Build.MODEL)
+                                        }
                                     }
                                 }
                             }
@@ -242,8 +256,10 @@ class MainActivity : AppCompatActivity() {
         currentUser?.getIdToken(false)?.addOnCompleteListener { task ->
             if (task.isSuccessful) {
                 val token = task.result?.token
-                // The URL is constructed using the 'device' parameter for more flexibility.
-                val url = "https://izabella-unpearled-clearly.ngrok-free.dev/keys/get_by_device/$device"
+                
+                // Encode the device name to handle spaces and special characters safely in the URL
+                val encodedDevice = Uri.encode(device)
+                val url = "https://izabella-unpearled-clearly.ngrok-free.dev/keys/get_by_device/$encodedDevice"
 
                 Thread {
                     try {
@@ -265,6 +281,9 @@ class MainActivity : AppCompatActivity() {
                                     404 -> {
                                         runOnUiThread {
                                             Toast.makeText(this, "Not found", Toast.LENGTH_SHORT).show()
+                                            keySelected.text = "Ninguno"
+                                            btnClearSelection.visibility = View.GONE
+                                            selectedKeyJson = null
                                         }
                                     }
                                     else -> {
@@ -286,7 +305,21 @@ class MainActivity : AppCompatActivity() {
                                 runOnUiThread {
                                     try {
                                         val keysData = selectedKeyJson?.getJSONObject("key")
-                                        keySelected.text = keysData?.optString("device", "No name")
+                                        val deviceName = keysData?.optString("device", "No name")
+                                        keySelected.text = deviceName
+
+                                        if (!deviceName.isNullOrEmpty() && deviceName != "Ninguno" && deviceName != "No name") {
+                                            btnClearSelection.visibility = View.VISIBLE
+                                            btnClearSelection.setOnClickListener {
+                                                val keyId = keysData?.optString("id")
+                                                if (keyId != null) {
+                                                    deselectKey(keyId)
+                                                }
+                                            }
+                                        } else {
+                                            btnClearSelection.visibility = View.GONE
+                                        }
+
                                     } catch (e: Exception) {
                                         println("Error al intentar obtener el key mediante device: ${e.message}")
                                     }
@@ -310,6 +343,27 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     Toast.makeText(this, "Error al obtener el token", Toast.LENGTH_SHORT).show()
                 }
+            }
+        }
+    }
+
+    private fun deselectKey(keyId: String) {
+        val currentUser = auth.currentUser
+        currentUser?.getIdToken(false)?.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val token = task.result?.token
+                Thread {
+                    // Reuse ApiCall logic
+                    ApiCall().updateAvailability(keyId, true, "", token)
+                    runOnUiThread {
+                        Toast.makeText(this, "Key liberada", Toast.LENGTH_SHORT).show()
+                        keySelected.text = "Ninguno"
+                        btnClearSelection.visibility = View.GONE
+                        selectedKeyJson = null
+                        // Refresh list to show it's available again
+                        getApiKeys()
+                    }
+                }.start()
             }
         }
     }

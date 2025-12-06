@@ -11,8 +11,11 @@ import org.json.JSONObject
 import com.google.firebase.auth.FirebaseAuth
 
 
-class KeyAdapter(private val apiKeys: List<JSONObject>, private val auth: FirebaseAuth) :
-    RecyclerView.Adapter<KeyAdapter.KeyViewHolder>() {
+class KeyAdapter(
+    private val apiKeys: List<JSONObject>,
+    private val auth: FirebaseAuth,
+    private val onKeyUpdated: () -> Unit
+) : RecyclerView.Adapter<KeyAdapter.KeyViewHolder>() {
     val apiCall = ApiCall()
 
     class KeyViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -29,16 +32,23 @@ class KeyAdapter(private val apiKeys: List<JSONObject>, private val auth: Fireba
 
     override fun onBindViewHolder(holder: KeyViewHolder, position: Int) {
         val key = apiKeys[position]
-        val keyName = key.getString("name")
-        val keyId = key.getString("id")
+        // MEJORA: Usar optString para evitar crash si faltan campos
+        val keyName = key.optString("name", "Unknown Name")
+        val keyId = key.optString("id", "No ID")
 
         holder.tvKeyName.text = keyName
         holder.tvKeyId.text = keyId
 
+        // Click normal: Seleccionar (Reclamar) la key
         holder.btnSelectKey.setOnClickListener {
-            selectKey("$keyId", holder)
+            selectKey(keyId, holder)
         }
 
+        // Click largo: Deseleccionar (Liberar) la key
+        holder.btnSelectKey.setOnLongClickListener {
+            deselectKey(keyId, holder)
+            true // Consumir el evento
+        }
     }
 
     private fun selectKey(key: String, holder: KeyViewHolder) {
@@ -50,19 +60,37 @@ class KeyAdapter(private val apiKeys: List<JSONObject>, private val auth: Fireba
                 val token = task.result?.token
                 println("Token to send to updateAvailability: $token")
                 Thread {
-                    //val token = currentUser!!.getIdToken(false).toString()
-                    apiCall.updateAvailability(key, false, "android", token)
+                    // isAvailable = false (Ocupado), device = Modelo actual
+                    apiCall.updateAvailability(key, false, android.os.Build.MODEL, token)
+                    
+                    // Ejecutar en UI thread después de que termine la llamada a la API
+                    holder.itemView.post {
+                        Toast.makeText(holder.itemView.context, "Key seleccionada: $key", Toast.LENGTH_SHORT).show()
+                        onKeyUpdated() // Notificar a la actividad para refrescar
+                    }
                 }.start()
             }
         }
+    }
 
-
-
-        Toast.makeText(
-            holder.itemView.context,
-            "ID: $key",
-            Toast.LENGTH_SHORT
-        ).show()
+    private fun deselectKey(key: String, holder: KeyViewHolder) {
+        println("Deselecting key ID: $key")
+        val currentUser = auth.currentUser
+        currentUser?.getIdToken(false)?.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val token = task.result?.token
+                println("Token to send to updateAvailability: $token")
+                Thread {
+                    // MEJORA: isAvailable = true (Disponible), device = "" (Vacio)
+                    apiCall.updateAvailability(key, true, "", token)
+                    
+                    holder.itemView.post {
+                        Toast.makeText(holder.itemView.context, "Key liberada: $key", Toast.LENGTH_SHORT).show()
+                        onKeyUpdated() // También refrescar al liberar (opcional pero consistente)
+                    }
+                }.start()
+            }
+        }
     }
 
     override fun getItemCount() = apiKeys.size
