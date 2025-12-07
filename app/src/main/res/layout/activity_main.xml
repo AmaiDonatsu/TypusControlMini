@@ -30,7 +30,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tvAppTitle" />
 
-    <!-- Tarjeta de Estado -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardStatus"
         android:layout_width="match_parent"
@@ -189,5 +188,57 @@
                 app:cornerRadius="12dp"/>
         </LinearLayout>
     </LinearLayout>
+
+    <!-- Warning Card for Accessibility -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardAccessibilityWarning"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="24dp"
+        android:layout_marginBottom="24dp"
+        app:cardBackgroundColor="?attr/colorErrorContainer"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="8dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/footerSection"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:gravity="center">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⚠️ Permiso necesario"
+                android:textStyle="bold"
+                android:textSize="18sp"
+                android:textColor="?attr/colorOnErrorContainer"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Se requiere el servicio de accesibilidad para el control remoto."
+                android:gravity="center"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:textColor="?attr/colorOnErrorContainer"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnEnableAccessibility"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ACTIVAR"
+                style="@style/Widget.Material3.Button.TonalButton"
+                app:backgroundTint="?attr/colorError"
+                android:textColor="?attr/colorOnError"/>
+
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

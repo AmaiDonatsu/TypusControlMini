@@ -18,6 +18,8 @@ import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
 import com.google.firebase.auth.FirebaseAuth
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -40,6 +42,9 @@ class MainActivity : AppCompatActivity() {
     private var apiKeys: List<String> = emptyList()
     private var apiKeysJson: List<JSONObject> = emptyList()
     private var selectedKeyJson: JSONObject? = null
+    
+    private lateinit var cardAccessibilityWarning: MaterialCardView
+    private lateinit var btnEnableAccessibility: MaterialButton
 
 
 
@@ -100,7 +105,7 @@ class MainActivity : AppCompatActivity() {
 
         auth = FirebaseAuth.getInstance()
 
-        // init views
+        // init views PRIMERO
         btnStartCapture = findViewById(R.id.btnStartCapture)
         btnStopCapture = findViewById(R.id.btnStopCapture)
         tvStatus = findViewById(R.id.tvStatus)
@@ -108,6 +113,8 @@ class MainActivity : AppCompatActivity() {
         btnClearSelection = findViewById(R.id.btnClearSelection)
         btnRefresh = findViewById(R.id.btnRefresh)
         rvKeys = findViewById(R.id.rvKeys)
+        cardAccessibilityWarning = findViewById(R.id.cardAccessibilityWarning)
+        btnEnableAccessibility = findViewById(R.id.btnEnableAccessibility)
 
         if (selectedKeyJson != null) {
             keySelected.text = "android"
@@ -118,12 +125,96 @@ class MainActivity : AppCompatActivity() {
 
         // Configurar botones
         setupButtons()
+        
+        // Listeners adicionales
+        btnEnableAccessibility.setOnClickListener {
+            AccessibilityUtils.openAccessibilitySettings(this)
+        }
+
+        // verify accessibility permission DESPUÉS de init views
+        if (!AccessibilityUtils.isAccessibilityServiceEnabled(this)) {
+            showAccessibilityDialog()
+            // Deshabilitar botones hasta que se active
+            disableControls()
+            updateAccessibilityWarningVisibility()
+        }
+        //
 
         // Cargar las API keys al inicio
         getApiKeys()
 
         getApiKeyWithDevice("android")
     }
+
+    private fun updateAccessibilityWarningVisibility() {
+        val isEnabled = AccessibilityUtils.isAccessibilityServiceEnabled(this)
+
+        if (isEnabled && cardAccessibilityWarning.visibility == View.VISIBLE) {
+            // Fade out
+            cardAccessibilityWarning.animate()
+                .alpha(0f)
+                .setDuration(300)
+                .withEndAction {
+                    cardAccessibilityWarning.visibility = View.GONE
+                    cardAccessibilityWarning.alpha = 1f
+                }
+        } else if (!isEnabled && cardAccessibilityWarning.visibility == View.GONE) {
+            // Fade in
+            cardAccessibilityWarning.alpha = 0f
+            cardAccessibilityWarning.visibility = View.VISIBLE
+            cardAccessibilityWarning.animate()
+                .alpha(1f)
+                .setDuration(300)
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    override fun onResume() {
+        super.onResume()
+
+        // Verificar si el servicio se activó mientras estábamos en Settings
+        if (AccessibilityUtils.isAccessibilityServiceEnabled(this)) {
+            enableControls()
+            updateAccessibilityWarningVisibility()
+            // Solo mostrar toast si venimos de un estado deshabilitado (podríamos añadir flag, pero por ahora está bien)
+        } else if (!supportFragmentManager.findFragmentByTag(AccessibilityPermissionDialog.TAG)?.isVisible!!) {
+            // Solo mostrar el diálogo si no está ya visible
+            disableControls()
+            updateAccessibilityWarningVisibility()
+        }
+    }
+    //
+
+    // verify
+    private fun showAccessibilityDialog() {
+        // Evitar mostrar multiples dialogos
+        if (supportFragmentManager.findFragmentByTag(AccessibilityPermissionDialog.TAG)?.isVisible == true) return
+        
+        AccessibilityPermissionDialog.newInstance()
+            .show(supportFragmentManager, AccessibilityPermissionDialog.TAG)
+    }
+
+    private fun disableControls() {
+        if (::btnStartCapture.isInitialized) {
+            btnStartCapture.isEnabled = false
+            btnStartCapture.alpha = 0.5f
+        }
+        if (::tvStatus.isInitialized) {
+            tvStatus.text = "Estado: Esperando permisos..."
+        }
+    }
+
+    private fun enableControls() {
+        if (::btnStartCapture.isInitialized) {
+            btnStartCapture.isEnabled = true
+            btnStartCapture.alpha = 1.0f
+        }
+        if (::tvStatus.isInitialized) {
+            tvStatus.text = "Estado: Listo ✅"
+        }
+    }
+
+    //
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun setupRecyclerView() {
@@ -157,6 +248,26 @@ class MainActivity : AppCompatActivity() {
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun startScreenCapture() {
+        // verify
+        if (!AccessibilityUtils.isAccessibilityServiceEnabled(this)) {
+            Toast.makeText(
+                this,
+                "⚠️ Activa el servicio de accesibilidad primero",
+                Toast.LENGTH_LONG
+            ).show()
+            showAccessibilityDialog()
+            return
+        }
+        if (selectedKeyJson == null) {
+            Toast.makeText(
+                this,
+                "⚠️ Selecciona un dispositivo primero",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+        //
+
         val intent = mediaProjectionManager.createScreenCaptureIntent()
         screenCaptureLauncher.launch(intent)  //
     }
@@ -223,7 +334,7 @@ class MainActivity : AppCompatActivity() {
                                     apiKeys = keyNames
                                     apiKeysJson = keyObjects
                                     runOnUiThread {
-                                        Toast.makeText(this, "${apiKeys.size} keys loaded!", Toast.LENGTH_SHORT).show()
+                                        // Toast.makeText(this, "${apiKeys.size} keys loaded!", Toast.LENGTH_SHORT).show()
                                         println("API Keys: $apiKeys")
                                         // Actualizar el adapter manteniendo el callback
                                         rvKeys.adapter = KeyAdapter(apiKeysJson, auth) {
@@ -280,7 +391,7 @@ class MainActivity : AppCompatActivity() {
                                     }
                                     404 -> {
                                         runOnUiThread {
-                                            Toast.makeText(this, "Not found", Toast.LENGTH_SHORT).show()
+                                            // Toast.makeText(this, "Not found", Toast.LENGTH_SHORT).show()
                                             keySelected.text = "Ninguno"
                                             btnClearSelection.visibility = View.GONE
                                             selectedKeyJson = null
@@ -368,17 +479,4 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-}
-
-//-------------
-
-fun isAccessibilityServiceEnabled(context: Context): Boolean {
-    val service = "${context.packageName}/.DeviceControlService"
-
-    val enabledServices = Settings.Secure.getString(
-        context.contentResolver,
-        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-    )
-
-    return enabledServices?.contains(service) == true
 }
