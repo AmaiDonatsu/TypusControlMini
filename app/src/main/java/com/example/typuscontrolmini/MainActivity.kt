@@ -206,9 +206,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun enableControls() {
         if (::btnStartCapture.isInitialized) {
-            btnStartCapture.isEnabled = true
+            updateButtons()
             btnStartCapture.alpha = 1.0f
         }
+
         if (::tvStatus.isInitialized) {
             tvStatus.text = "Estado: Listo ✅"
         }
@@ -220,8 +221,6 @@ class MainActivity : AppCompatActivity() {
     private fun setupRecyclerView() {
         rvKeys.layoutManager = LinearLayoutManager(this)
         keyAdapter = KeyAdapter(apiKeysJson, auth) {
-            // Callback: Se ejecuta cuando se selecciona o libera una key
-            // Refrescar lista y estado del dispositivo
             getApiKeys()
             getApiKeyWithDevice(android.os.Build.MODEL)
         }
@@ -270,6 +269,7 @@ class MainActivity : AppCompatActivity() {
 
         val intent = mediaProjectionManager.createScreenCaptureIntent()
         screenCaptureLauncher.launch(intent)  //
+        updateButtons()
     }
 
     @SuppressLint("SetTextI18n")
