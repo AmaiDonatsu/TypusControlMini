@@ -75,3 +75,14 @@ Aquí hay una lista de los comandos soportados y sus parámetros:
 -   **`getElements`**: Recupera una lista de elementos de la interfaz de usuario interactuables en la pantalla.
     -   *Sin parámetros.*
     -   *Ejemplo*: `{"type": "command", "command": "getElements"}`
+
+## Screenshots
+
+**Solicitud de permisos de accesibilidad**
+<img src="assets/allow.png" height="520">
+
+**Pantalla principal de la aplicación**
+<img src="assets/main.png" height="520">
+
+**Transmitiendo la pantalla**
+<img src="assets/streaming.png" height="520">
