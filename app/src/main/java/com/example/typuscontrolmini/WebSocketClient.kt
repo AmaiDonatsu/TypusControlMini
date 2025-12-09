@@ -5,6 +5,7 @@ import okio.ByteString
 import java.util.concurrent.TimeUnit
 import com.google.firebase.auth.FirebaseAuth
 import okhttp3.MediaType.Companion.toMediaType
+import org.json.JSONObject
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import javax.net.ssl.SSLContext
@@ -16,8 +17,7 @@ private val JSON = "application/json; charset=utf-8".toMediaType()
 class WebSocketClient(private val serverUrl: String) {
 
     private var webSocket: WebSocket? = null
-    
-    // Usamos un cliente "inseguro" para desarrollo para evitar problemas de certificados con ngrok/IPs locales
+
     private val client = OkHttpClient.Builder()
         .readTimeout(0, TimeUnit.MILLISECONDS)
         .build()
@@ -25,11 +25,9 @@ class WebSocketClient(private val serverUrl: String) {
     private var isConnected = false
     private var frameNumber = 0
 
-    // Callback para recibir comandos
     private var onCommandReceived: ((String) -> Unit)? = null
 
     companion object {
-        // Prefijo para filtrar fácil en Logcat: "logcat | grep DEBUG_WS"
         private const val TAG = "DEBUG_WS"
     }
 
@@ -52,7 +50,6 @@ class WebSocketClient(private val serverUrl: String) {
             return
         }
 
-        // Forzar refresh del token para evitar problemas de caché/keystore
         currentUser.getIdToken(true).addOnCompleteListener { task ->
             if (task.isSuccessful) {
                 val token = task.result?.token
@@ -80,7 +77,21 @@ class WebSocketClient(private val serverUrl: String) {
                     override fun onMessage(webSocket: WebSocket, text: String) {
                         Log.d(TAG, "📨 ON_MESSAGE (Texto): $text")
                         try {
+                            val jsonMessage = JSONObject(text)
+                            if (jsonMessage.has("type") && jsonMessage.getString("type") == "ping") {
+                                Log.d(TAG, "❤️ Recibido PING del servidor, respondiendo PONG...")
+
+                                val pongResponse = JSONObject().apply {
+                                    put("type", "pong")
+                                    if (jsonMessage.has("sequence")) {
+                                        put("sequence", jsonMessage.get("sequence"))
+                                    }
+                                }
+                                webSocket.send(pongResponse.toString())
+                                return
+                            }
                             onCommandReceived?.invoke(text)
+
                         } catch (e: Exception) {
                             Log.e(TAG, "❌ Error procesando mensaje de texto: ${e.message}")
                             e.printStackTrace()
@@ -179,7 +190,6 @@ class WebSocketClient(private val serverUrl: String) {
 
     fun isConnected(): Boolean = isConnected
 
-    // Función auxiliar para ignorar errores SSL (Solo para Dev)
     private fun getUnsafeOkHttpClient(): OkHttpClient {
         try {
             val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {

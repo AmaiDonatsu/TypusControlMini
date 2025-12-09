@@ -172,13 +172,10 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
 
-        // Verificar si el servicio se activó mientras estábamos en Settings
         if (AccessibilityUtils.isAccessibilityServiceEnabled(this)) {
             enableControls()
             updateAccessibilityWarningVisibility()
-            // Solo mostrar toast si venimos de un estado deshabilitado (podríamos añadir flag, pero por ahora está bien)
         } else if (!supportFragmentManager.findFragmentByTag(AccessibilityPermissionDialog.TAG)?.isVisible!!) {
-            // Solo mostrar el diálogo si no está ya visible
             disableControls()
             updateAccessibilityWarningVisibility()
         }
@@ -187,7 +184,6 @@ class MainActivity : AppCompatActivity() {
 
     // verify
     private fun showAccessibilityDialog() {
-        // Evitar mostrar multiples dialogos
         if (supportFragmentManager.findFragmentByTag(AccessibilityPermissionDialog.TAG)?.isVisible == true) return
         
         AccessibilityPermissionDialog.newInstance()
