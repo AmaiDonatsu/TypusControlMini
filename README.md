@@ -4,7 +4,7 @@
 
 TypusControl Mini actúa como el *Client Side* dentro de la arquitectura de AsyncControl. Esta aplicación cumple el rol de "ojos y manos" del sistema, encargándose de dos funciones críticas, 
 
-![Banner Principal](assets/asyncTel.png)
+<img src="assets/asyncTel.png" width="400">
 
 - 1: Streamer (Telemetría): Captura y transmite el estado de la pantalla en tiempo real hacia el componente Monitor de ``AsyncControl``.
 - 2: Actuador (Ejecución): Escucha, decodifica y ejecuta los comandos serializados provenientes de la Consola de ``AsyncControl``, traduciéndolos en acciones nativas sobre la interfaz de usuario.
