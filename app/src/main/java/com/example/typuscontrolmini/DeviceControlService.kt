@@ -38,7 +38,6 @@ class DeviceControlService: AccessibilityService() {
     fun performTap(x: Float, y: Float, callback: ((Boolean, UIElement?) -> Unit)? = null) {
         Log.d(TAG, "👆 Ejecutando tap en ($x, $y)")
 
-        // 1. Intentar encontrar qué hay en esas coordenadas ANTES del tap
         var tappedElement: UIElement? = null
         val root = rootInActiveWindow
         if (root != null) {
@@ -68,7 +67,6 @@ class DeviceControlService: AccessibilityService() {
         }, null)
     }
 
-    // Lógica para encontrar el nodo más profundo en (X, Y)
     private fun findNodeAt(node: AccessibilityNodeInfo, x: Int, y: Int): UIElement? {
         val bounds = Rect()
         node.getBoundsInScreen(bounds)
@@ -124,6 +122,38 @@ class DeviceControlService: AccessibilityService() {
 
             override fun onCancelled(gestureDescription: GestureDescription?) {
                 Log.e(TAG, "❌ Pulsación cancelada")
+                callback?.invoke(false)
+            }
+        }, null)
+    }
+
+    fun performDoubleTap(x: Float, y: Float, callback: ((Boolean) -> Unit)? = null) {
+        Log.d(TAG, "👆⚡️ Ejecutando doble tap en ($x, $y)")
+
+        val path = Path().apply {
+            moveTo(x, y)
+        }
+
+        val tapDuration = 50L
+        val tapGap = 100L
+
+        val stroke1 = GestureDescription.StrokeDescription(path, 0, tapDuration)
+
+        val stroke2 = GestureDescription.StrokeDescription(path, tapDuration + tapGap, tapDuration)
+
+        val gesture = GestureDescription.Builder()
+            .addStroke(stroke1)
+            .addStroke(stroke2)
+            .build()
+
+        dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription?) {
+                Log.d(TAG, "✅ Doble Tap completado")
+                callback?.invoke(true)
+            }
+
+            override fun onCancelled(gestureDescription: GestureDescription?) {
+                Log.e(TAG, "❌ Doble Tap cancelado")
                 callback?.invoke(false)
             }
         }, null)
