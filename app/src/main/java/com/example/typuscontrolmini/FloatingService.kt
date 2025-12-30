@@ -20,6 +20,11 @@ class FloatingService : Service() {
     private var initialTouchX: Float = 0f
     private var initialTouchY: Float = 0f
 
+    companion object {
+        private const val CLICK_DURATION_MS = 200L
+        private const val CLICK_MOVEMENT_THRESHOLD_PX = 10f
+    }
+
     override fun onBind(intent: Intent?): IBinder? {
         return null
     }
@@ -80,7 +85,9 @@ class FloatingService : Service() {
                         val distanceY = kotlin.math.abs(event.rawY - initialTouchY)
                         
                         // Check if it was a click (short duration and minimal movement)
-                        if (clickDuration < 200 && distanceX < 10 && distanceY < 10) {
+                        if (clickDuration < CLICK_DURATION_MS && 
+                            distanceX < CLICK_MOVEMENT_THRESHOLD_PX && 
+                            distanceY < CLICK_MOVEMENT_THRESHOLD_PX) {
                             openChatActivity()
                         }
                         return true
