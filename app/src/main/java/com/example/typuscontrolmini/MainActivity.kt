@@ -45,7 +45,8 @@ class MainActivity : AppCompatActivity() {
     
     private lateinit var cardAccessibilityWarning: MaterialCardView
     private lateinit var btnEnableAccessibility: MaterialButton
-
+    private lateinit var btnToggleChatBubble: MaterialButton
+    private var isChatBubbleActive = false
 
 
     private val mediaProjectionManager by lazy {
@@ -115,6 +116,7 @@ class MainActivity : AppCompatActivity() {
         rvKeys = findViewById(R.id.rvKeys)
         cardAccessibilityWarning = findViewById(R.id.cardAccessibilityWarning)
         btnEnableAccessibility = findViewById(R.id.btnEnableAccessibility)
+        btnToggleChatBubble = findViewById(R.id.btnToggleChatBubble)
 
         if (selectedKeyJson != null) {
             keySelected.text = "android"
@@ -238,7 +240,42 @@ class MainActivity : AppCompatActivity() {
             getApiKeyWithDevice(android.os.Build.MODEL)
         }
 
+        btnToggleChatBubble.setOnClickListener {
+            toggleChatBubble()
+        }
+
         updateButtons()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.M)
+    private fun toggleChatBubble() {
+        // Check if overlay permission is granted
+        if (!Settings.canDrawOverlays(this)) {
+            // Request permission
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+            Toast.makeText(
+                this,
+                "Please grant overlay permission to use chat bubble",
+                Toast.LENGTH_LONG
+            ).show()
+            startActivity(intent)
+            return
+        }
+
+        if (isChatBubbleActive) {
+            // Stop the floating service
+            stopService(Intent(this, FloatingService::class.java))
+            isChatBubbleActive = false
+            Toast.makeText(this, "Chat bubble disabled", Toast.LENGTH_SHORT).show()
+        } else {
+            // Start the floating service
+            startService(Intent(this, FloatingService::class.java))
+            isChatBubbleActive = true
+            Toast.makeText(this, "Chat bubble enabled", Toast.LENGTH_SHORT).show()
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
