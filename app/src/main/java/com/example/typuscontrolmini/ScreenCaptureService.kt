@@ -89,9 +89,10 @@ class ScreenCaptureService : Service() {
 
             webSocketClient?.setOnCommandReceived { commandJson ->
                 Log.d(TAG, "[SERVICE] 📨 Pasando comando a Handler: $commandJson")
-                commandHandler.handleCommand(commandJson) { response ->
+                commandHandler.onResponseCallback = { response ->
                     webSocketClient?.sendResponse(response)
                 }
+                commandHandler.handleCommand(commandJson)
             }
 
             webSocketClient?.connect(
