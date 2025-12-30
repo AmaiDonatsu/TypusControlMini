@@ -10,13 +10,11 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.widget.ImageView
 
 class FloatingService : Service() {
 
     private lateinit var windowManager: WindowManager
     private lateinit var floatingView: View
-    private lateinit var chatHeadImage: ImageView
     private var initialX: Int = 0
     private var initialY: Int = 0
     private var initialTouchX: Float = 0f
@@ -34,7 +32,6 @@ class FloatingService : Service() {
 
         // 2. Inflar el diseño de la burbuja desde XML
         floatingView = LayoutInflater.from(this).inflate(R.layout.layout_chat_head, null)
-        chatHeadImage = floatingView.findViewById(R.id.chat_head_image)
 
         // 3. Definir los parámetros de diseño para la ventana flotante
         val params = WindowManager.LayoutParams(
