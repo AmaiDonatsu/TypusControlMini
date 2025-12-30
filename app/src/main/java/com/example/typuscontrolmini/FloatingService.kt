@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 
@@ -14,6 +15,15 @@ class FloatingService : Service() {
 
     private lateinit var windowManager: WindowManager
     private lateinit var floatingView: View
+    private var initialX: Int = 0
+    private var initialY: Int = 0
+    private var initialTouchX: Float = 0f
+    private var initialTouchY: Float = 0f
+
+    companion object {
+        private const val CLICK_DURATION_MS = 200L
+        private const val CLICK_MOVEMENT_THRESHOLD_PX = 10f
+    }
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
@@ -48,6 +58,50 @@ class FloatingService : Service() {
 
         // 4. Añadir la vista al WindowManager
         windowManager.addView(floatingView, params)
+
+        // 5. Add touch listener for drag and click functionality
+        floatingView.setOnTouchListener(object : View.OnTouchListener {
+            private var clickStartTime: Long = 0
+
+            override fun onTouch(v: View, event: MotionEvent): Boolean {
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        initialX = params.x
+                        initialY = params.y
+                        initialTouchX = event.rawX
+                        initialTouchY = event.rawY
+                        clickStartTime = System.currentTimeMillis()
+                        return true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        params.x = initialX + (event.rawX - initialTouchX).toInt()
+                        params.y = initialY + (event.rawY - initialTouchY).toInt()
+                        windowManager.updateViewLayout(floatingView, params)
+                        return true
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        val clickDuration = System.currentTimeMillis() - clickStartTime
+                        val distanceX = kotlin.math.abs(event.rawX - initialTouchX)
+                        val distanceY = kotlin.math.abs(event.rawY - initialTouchY)
+                        
+                        // Check if it was a click (short duration and minimal movement)
+                        if (clickDuration < CLICK_DURATION_MS && 
+                            distanceX < CLICK_MOVEMENT_THRESHOLD_PX && 
+                            distanceY < CLICK_MOVEMENT_THRESHOLD_PX) {
+                            openChatActivity()
+                        }
+                        return true
+                    }
+                }
+                return false
+            }
+        })
+    }
+
+    private fun openChatActivity() {
+        val intent = Intent(this, ChatActivity::class.java)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
     }
 
     override fun onDestroy() {
