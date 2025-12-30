@@ -11,12 +11,22 @@ android {
 
     defaultConfig {
         applicationId = "com.example.typuscontrolmini"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    packaging {
+        resources {
+            excludes.add("/META-INF/{AL2.0,LGPL2.1}")
+            excludes.add("META-INF/LICENSE-notice.md")
+            excludes.add("META-INF/LICENSE.md")
+            excludes.add("META-INF/INDEX.LIST")
+            excludes.add("META-INF/DEPENDENCIES")
+        }
     }
 
     buildTypes {
@@ -64,6 +74,9 @@ dependencies {
 
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    //
+    implementation("com.google.genai:google-genai:1.0.0")
 
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:34.3.0"))
