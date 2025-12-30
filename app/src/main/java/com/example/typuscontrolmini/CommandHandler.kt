@@ -39,7 +39,6 @@ class CommandHandler {
                     val x = json.getDouble("x").toFloat()
                     val y = json.getDouble("y").toFloat()
 
-                    // send element taped
                     service.performTap(x, y) { success, element ->
                         if (success) {
                             val response = JSONObject().apply {
@@ -87,6 +86,20 @@ class CommandHandler {
                             sendErrorResponse(commandId, "Press falló", onResponse)
                         }
                     }
+                }
+
+                "doubleTap" -> {
+                    val x = json.getDouble("x").toFloat()
+                    val y = json.getDouble("y").toFloat()
+
+                    service.performDoubleTap(x, y) { success ->
+                        if (success) {
+                            sendSuccessResponse(commandId, "DoubleTap ejecutado", onResponse)
+                        } else {
+                            sendErrorResponse(commandId, "DoubleTap falló", onResponse)
+                        }
+                    }
+
                 }
 
                 "swipe" -> {
