@@ -6,4 +6,8 @@
     <string name="chat_bubble_description">Chat Bubble</string>
     <string name="message_hint">Type a message...</string>
     <string name="send_message_description">Send message</string>
+    <string name="overlay_permission_required">Please grant overlay permission to use chat bubble</string>
+    <string name="chat_bubble_disabled">Chat bubble disabled</string>
+    <string name="chat_bubble_enabled">Chat bubble enabled</string>
+    <string name="toggle_chat_bubble_tooltip">Toggle Chat Bubble</string>
 </resources>

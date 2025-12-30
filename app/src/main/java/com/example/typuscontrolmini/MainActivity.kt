@@ -257,7 +257,7 @@ class MainActivity : AppCompatActivity() {
             )
             Toast.makeText(
                 this,
-                "Please grant overlay permission to use chat bubble",
+                R.string.overlay_permission_required,
                 Toast.LENGTH_LONG
             ).show()
             startActivity(intent)
@@ -268,12 +268,12 @@ class MainActivity : AppCompatActivity() {
             // Stop the floating service
             stopService(Intent(this, FloatingService::class.java))
             isChatBubbleActive = false
-            Toast.makeText(this, "Chat bubble disabled", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.chat_bubble_disabled, Toast.LENGTH_SHORT).show()
         } else {
             // Start the floating service
             startService(Intent(this, FloatingService::class.java))
             isChatBubbleActive = true
-            Toast.makeText(this, "Chat bubble enabled", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.chat_bubble_enabled, Toast.LENGTH_SHORT).show()
         }
     }
 
