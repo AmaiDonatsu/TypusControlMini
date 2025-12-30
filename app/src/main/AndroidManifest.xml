@@ -46,7 +46,11 @@
             android:exported="false" />
 
         <activity android:name=".ChatActivity"
-            android:exported="false"
+            android:allowEmbedded="true"
+            android:documentLaunchMode="always"
+            android:resizeableActivity="true"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="true"
             android:theme="@style/Theme.TypusControlMini" />
 
         <service
