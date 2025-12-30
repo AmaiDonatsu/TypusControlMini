@@ -3,4 +3,7 @@
     <string name="accessibility_service_description">
     Permite a AsyncControl ejecutar comandos en el dispositivo como taps, swipes y navegación.
     </string>
+    <string name="chat_bubble_description">Chat Bubble</string>
+    <string name="message_hint">Type a message...</string>
+    <string name="send_message_description">Send message</string>
 </resources>

@@ -29,7 +29,7 @@ class ChatActivity : AppCompatActivity() {
             val message = etMessage.text.toString().trim()
             if (message.isNotEmpty()) {
                 // TODO: Handle sending message
-                etMessage.setText("")
+                etMessage.text?.clear()
             }
         }
     }

@@ -13,6 +13,6 @@
         android:text="💬"
         android:textSize="32sp"
         android:layout_gravity="center"
-        android:contentDescription="Chat Bubble" />
+        android:contentDescription="@string/chat_bubble_description" />
 
 </FrameLayout>

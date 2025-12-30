@@ -35,7 +35,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:hint="Type a message..."
+            android:hint="@string/message_hint"
             android:background="@android:drawable/edit_text"
             android:padding="12dp"
             android:maxLines="4"
@@ -48,7 +48,7 @@
             android:layout_marginStart="8dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_send"
-            android:contentDescription="Send message" />
+            android:contentDescription="@string/send_message_description" />
 
     </LinearLayout>
 

@@ -56,7 +56,6 @@ class FloatingService : Service() {
 
         // 5. Add touch listener for drag and click functionality
         floatingView.setOnTouchListener(object : View.OnTouchListener {
-            private var lastAction: Int = MotionEvent.ACTION_UP
             private var clickStartTime: Long = 0
 
             override fun onTouch(v: View, event: MotionEvent): Boolean {
@@ -66,7 +65,6 @@ class FloatingService : Service() {
                         initialY = params.y
                         initialTouchX = event.rawX
                         initialTouchY = event.rawY
-                        lastAction = MotionEvent.ACTION_DOWN
                         clickStartTime = System.currentTimeMillis()
                         return true
                     }
@@ -74,7 +72,6 @@ class FloatingService : Service() {
                         params.x = initialX + (event.rawX - initialTouchX).toInt()
                         params.y = initialY + (event.rawY - initialTouchY).toInt()
                         windowManager.updateViewLayout(floatingView, params)
-                        lastAction = MotionEvent.ACTION_MOVE
                         return true
                     }
                     MotionEvent.ACTION_UP -> {
@@ -86,7 +83,6 @@ class FloatingService : Service() {
                         if (clickDuration < 200 && distanceX < 10 && distanceY < 10) {
                             openChatActivity()
                         }
-                        lastAction = MotionEvent.ACTION_UP
                         return true
                     }
                 }
