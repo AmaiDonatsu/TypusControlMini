@@ -247,10 +247,9 @@ class MainActivity : AppCompatActivity() {
         updateButtons()
     }
 
-    @RequiresApi(Build.VERSION_CODES.M)
     private fun toggleChatBubble() {
         // Check if overlay permission is granted
-        if (!Settings.canDrawOverlays(this)) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             // Request permission
             val intent = Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,

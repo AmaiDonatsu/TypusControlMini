@@ -79,8 +79,8 @@ class FloatingService : Service() {
                     }
                     MotionEvent.ACTION_UP -> {
                         val clickDuration = System.currentTimeMillis() - clickStartTime
-                        val distanceX = Math.abs(event.rawX - initialTouchX)
-                        val distanceY = Math.abs(event.rawY - initialTouchY)
+                        val distanceX = kotlin.math.abs(event.rawX - initialTouchX)
+                        val distanceY = kotlin.math.abs(event.rawY - initialTouchY)
                         
                         // Check if it was a click (short duration and minimal movement)
                         if (clickDuration < 200 && distanceX < 10 && distanceY < 10) {
