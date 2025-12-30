@@ -11,6 +11,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 
+@Deprecated("FloatingService is deprecated. Its core logic has been moved to CoreService.kt")
 class FloatingService : Service() {
 
     private lateinit var windowManager: WindowManager
