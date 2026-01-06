@@ -7,6 +7,8 @@ import org.json.JSONObject
 
 class CommandHandler {
 
+
+
     companion object {
         private const val TAG = "MCP_Handler"
         private val gson = Gson()
@@ -88,6 +90,7 @@ class CommandHandler {
                         // Por ahora solo logueamos, ya que estamos migrando a MCP
                         sendError(id, -32600, "Legacy commands not supported in this version. Use MCP.")
                     }
+
                 }
 
                 else -> sendError(id, -32601, "Method not found: $method")
@@ -136,6 +139,7 @@ class CommandHandler {
                         sendToolError(id, "Failed to input text. Hint: Ensure an input field is refocused/clicked first.")
                     }
                 }
+
             }
             
             "get_screen_tree" -> {
@@ -146,6 +150,7 @@ class CommandHandler {
 
             else -> sendError(id, -32601, "Tool not found: $toolName")
         }
+
     }
 
     // 🔮 Manejador de Recursos (Fase 3 - Placeholder)
