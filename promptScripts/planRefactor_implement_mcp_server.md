@@ -1,13 +1,12 @@
+example command handler 
+```kotlin
 package com.example.typuscontrolmini
 
 import android.util.Log
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import org.json.JSONObject
+import com.google.gson.Gson // 💡 Recomendación: Agrega GSON a tu build.gradle para facilitar el parseo
 
 class CommandHandler {
-
-
 
     companion object {
         private const val TAG = "MCP_Handler"
@@ -52,7 +51,6 @@ class CommandHandler {
     fun handleCommand(message: String) {
         try {
             // 1. Parseamos la petición cruda
-            // Usamos JSONObject para un primer pase rápido y seguro de tipos dinámicos
             val requestJson = JSONObject(message)
             
             // Verificamos si es un mensaje JSON-RPC válido (o al menos intentamos adaptarnos)
@@ -87,10 +85,7 @@ class CommandHandler {
                     if (requestJson.has("command")) {
                         Log.w(TAG, "⚠️ Detectado comando legacy. Redirigiendo...")
                         // Aquí podrías llamar a una función legacy si fuera necesario
-                        // Por ahora solo logueamos, ya que estamos migrando a MCP
-                        sendError(id, -32600, "Legacy commands not supported in this version. Use MCP.")
                     }
-
                 }
 
                 else -> sendError(id, -32601, "Method not found: $method")
@@ -139,7 +134,6 @@ class CommandHandler {
                         sendToolError(id, "Failed to input text. Hint: Ensure an input field is refocused/clicked first.")
                     }
                 }
-
             }
             
             "get_screen_tree" -> {
@@ -150,7 +144,6 @@ class CommandHandler {
 
             else -> sendError(id, -32601, "Tool not found: $toolName")
         }
-
     }
 
     // 🔮 Manejador de Recursos (Fase 3 - Placeholder)
@@ -205,9 +198,6 @@ class CommandHandler {
             ),
             "isError" to true
         )
-        // Note: For tool errors (execution failure), we often still return a success JSON-RPC response
-        // but with the tool's error content, UNLESS it's a protocol error.
-        // However, standard MCP usually returns success with isError=true in the content.
         sendSuccess(id, toolError)
     }
 
@@ -218,3 +208,88 @@ class CommandHandler {
         onResponseCallback?.invoke(json)
     }
 }
+```
+}# 🏗️ Master Plan: Implementación de Protocolo MCP en Typus Control Mini
+
+## 📋 Contexto del Proyecto
+**Typus Control Mini** es una aplicación Android que actúa como un servidor de control remoto. Actualmente utiliza un protocolo propietario sobre WebSockets para recibir comandos (`tap`, `swipe`, etc.) y transmitir video.
+
+## 🎯 Objetivo de la Refactorización
+Migrar la capa de comunicación de comandos ("Control Plane") para cumplir con el estándar **Model Context Protocol (MCP)** utilizando **JSON-RPC 2.0**.
+Esto permitirá que agentes de IA estandarizados descubran capacidades (`tools/list`), ejecuten acciones (`tools/call`) y lean el estado de la pantalla (`resources/read`) de forma dinámica.
+
+---
+
+## 🛠️ Especificaciones Técnicas (Instrucciones para el Agente)
+
+### 1. Gestión de Dependencias
+**Archivo:** `app/build.gradle.kts`
+**Acción:** Añadir la librería GSON para el manejo eficiente de serialización JSON compleja requerida por MCP.
+
+```kotlin
+dependencies {
+    // ... otras dependencias
+    implementation("com.google.code.gson:gson:2.10.1")
+}
+2. Definición de Modelos de Datos (Nuevo Archivo)
+Archivo: app/src/main/java/com/example/typuscontrolmini/McpModels.kt Acción: Crear este archivo para definir las estructuras estrictas de JSON-RPC 2.0.
+
+Requisitos del Código:
+
+Debe contener data classes para McpRequest (jsonrpc, method, params, id).
+
+Debe contener data classes para McpResponse (jsonrpc, result, error, id).
+
+Debe contener data classes para McpError y McpTool.
+
+Importante: id debe ser de tipo Any? (puede ser String o Int).
+
+3. Refactorización del Cerebro (CommandHandler)
+Archivo: app/src/main/java/com/example/typuscontrolmini/CommandHandler.kt Acción: Reemplazar la lógica actual de comandos planos por un router JSON-RPC.
+
+Lógica Requerida:
+
+Inicialización: Instanciar Gson.
+
+Catálogo de Herramientas (availableTools):
+
+Definir una lista inmutable de McpTool que describa las capacidades actuales:
+
+execute_tap: params x (number), y (number).
+
+input_text: params text (string).
+
+get_screen_tree: sin params.
+
+Método handleCommand(message: String):
+
+Parsear el mensaje entrante como JSON.
+
+Leer la propiedad method.
+
+Caso tools/list: Devolver la lista de herramientas definida arriba.
+
+Caso tools/call:
+
+Extraer name y arguments de los parámetros.
+
+Rutear a la función correspondiente en DeviceControlService.
+
+IMPORTANTE: La respuesta exitosa de una tool debe seguir la estructura: { content: [{ type: "text", text: "..." }] }.
+
+Caso resources/read:
+
+Verificar si la URI es mobile://screen/xml.
+
+Si es correcto, llamar a DeviceControlService.getUIHierarchy() y devolverlo embebido en la respuesta.
+
+Manejo de Errores:
+
+Si el método no existe o el JSON está malformado, devolver un McpError estándar (Códigos -32700, -32601, etc.).
+
+4. Integración con Servicios Existentes
+Archivo: app/src/main/java/com/example/typuscontrolmini/DeviceControlService.kt Acción: (Verificación solamente)
+
+Asegurar que performTap, inputText y getUIHierarchy sean accesibles.
+
+Mejora Crítica: Asegurar que los callbacks de estas funciones devuelvan información suficiente para construir una respuesta útil para la IA (ej. si performTap encontró un elemento, devolver su clase o ID en el callback).
