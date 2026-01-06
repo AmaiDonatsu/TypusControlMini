@@ -1,0 +1,26 @@
+[33md76222e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mclean-structure[m[33m, [m[1;32mmaster[m[33m, [m[1;32mclean-structure-2[m[33m)[m user experience - verify Accessibility Permission
+[33mdfa72cd[m[33m ([m[1;31morigin/master[m[33m)[m client, cleaning - client that ignores SSL certificates issue, reduce hardcode in urls vars
+[33mae8fb99[m handle keys - add 'desselect' key button, refresh keys list functionality when the user selects any key, use the model name of device for device name arg, and fix URL spaces issue
+[33me843401[m mediaprojection - issue "can't create handler inside thread" error in physical devices fixed made with gemini 3.0
+[33me72a576[m DEBUG - add logs to debug connections problems
+[33mf5b22b8[m deviceControler - send element touched
+[33m3d8778f[m ui - first design proposal
+[33mdd814a5[m device control - attempt to resolve the inputText command issue, patch (attempt to repeat the command approximately 5 times in one second)
+[33m28abf36[m device control - new commands, long press and input text
+[33me55e3ac[m device control - send ui
+[33m5498c74[m device control - init
+[33m96134f4[m stream - change base 64 to bytes
+[33m657d317[m connect web socket with tokenauth, device, secretKey
+[33m83c33c2[m init get apiKey with device
+[33m71cf401[m delete or sup warnings
+[33mc8b6cd7[m add select key functionality
+[33m7f9e08a[m init keys list
+[33m040ab9f[m save in json object
+[33mb4f8aee[m get and save keys
+[33mf9c50c3[m init functions to get available keys
+[33m4be9c65[m debuging authentication
+[33m5c831cd[m login with firebase integration init
+[33m464c872[m Screen Login Init
+[33m9b75320[m screen streaming init
+[33mccf2a62[m commit test
+[33me8ce630[m first commit: innit screen capture service test
